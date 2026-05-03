@@ -2,8 +2,10 @@ package org.hameed.hameedmoneycli.model.entity;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hameed.hameedmoneycli.enums.SourceSystem;
 import org.hameed.hameedmoneycli.enums.TransactionType;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -19,6 +21,7 @@ import java.time.OffsetDateTime;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class Transaction {
 
     @Id
@@ -31,6 +34,9 @@ public class Transaction {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private TransactionType type;
+
+    @Column(name = "transaction_date", nullable = false)
+    private OffsetDateTime transactionDate;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "from_account_id", nullable = false)
@@ -52,8 +58,9 @@ public class Transaction {
     @Column(name = "external_ref_id", unique = true, length = 255)
     private String externalRefId;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "source_system", length = 50)
-    private String sourceSystem;
+    private SourceSystem sourceSystem;
 
     @Column(columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)

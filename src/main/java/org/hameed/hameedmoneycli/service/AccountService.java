@@ -5,8 +5,10 @@ import org.hameed.hameedmoneycli.model.dto.AccountCreateDto;
 import org.hameed.hameedmoneycli.model.entity.Account;
 import org.hameed.hameedmoneycli.model.entity.Asset;
 import org.hameed.hameedmoneycli.repository.AccountRepository;
-import org.hameed.hameedmoneycli.repository.AssetRepository;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.TreeSet;
 
 @Service
 @RequiredArgsConstructor
@@ -35,6 +37,14 @@ public class AccountService {
         accountRepository.save(account);
     }
 
+    public List<Account> getAllAccounts() {
+        return accountRepository.findAll();
+    }
+
+    public Account getAccountById(Long id) {
+        return accountRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Account with ID " + id + " not found"));
+    }
 
 
 }

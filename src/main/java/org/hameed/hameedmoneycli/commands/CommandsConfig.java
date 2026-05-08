@@ -8,6 +8,7 @@ import org.hameed.hameedmoneycli.enums.TransactionType;
 import org.hameed.hameedmoneycli.model.dto.AccountCreateDto;
 import org.hameed.hameedmoneycli.model.dto.AssetCreateDto;
 import org.hameed.hameedmoneycli.model.dto.TransactionCreateDto;
+import org.hameed.hameedmoneycli.model.dto.TransactionFilter;
 import org.hameed.hameedmoneycli.model.entity.Account;
 import org.hameed.hameedmoneycli.model.entity.Asset;
 import org.hameed.hameedmoneycli.service.AccountService;
@@ -140,7 +141,7 @@ public class CommandsConfig {
                                 .build())
                 .execute(ctx -> {
                     List<Account> accounts = accountService.getAllAccounts();
-                    boolean treeView = ctx.getOptionByLongName("tree").value() != null && Boolean.valueOf(ctx.getOptionByLongName("tree").value());
+                    boolean treeView = ctx.getOptionByLongName("tree") != null && ctx.getOptionByLongName("tree").value() != null && Boolean.valueOf(ctx.getOptionByLongName("tree").value());
                     if (treeView) {
                         // print accounts in a tree view
                         printAccountTree(accounts, null, 0);
@@ -263,6 +264,79 @@ public class CommandsConfig {
                 });
     }
 
+    @Bean
+    public Command listTransactions() {
+        return Command.builder()
+                .name("transaction list")
+                .description("List all transactions")
+                .help("List all transactions. Usage: `tx ls --transaction-type CARD_PURCHASE --from-account-id 1 --to-account-id 2 --start-date 2024-01-01 --end-date 2024-12-31` \n Note: all options are optional, you can filter transactions by from account, to account, start date, end date, and transaction type.")
+                .options(
+                        CommandOption.with()
+                                .shortName('T')
+                                .longName("transaction-type")
+                                .required(false)
+                                .type(String.class)
+                                .build(),
+                        CommandOption.with()
+                                .shortName('f')
+                                .longName("from-account-id")
+                                .required(false)
+                                .type(String.class)
+                                .build(),
+                        CommandOption.with()
+                                .shortName('t')
+                                .longName("to-account-id")
+                                .required(false)
+                                .type(String.class)
+                                .build(),
+                        CommandOption.with()
+                                .shortName('s')
+                                .longName("start-date")
+                                .required(false)
+                                .type(String.class)
+                                .build(),
+                        CommandOption.with()
+                                .shortName('e')
+                                .longName("end-date")
+                                .required(false)
+                                .type(String.class)
+                                .build()
+                )
+                .execute(ctx -> {
+                    String transactionType = ctx.getOptionByLongName("transaction-type") != null ? ctx.getOptionByLongName("transaction-type").value() : null;
+                    String fromAccountId = ctx.getOptionByLongName("from-account-id") != null ? ctx.getOptionByLongName("from-account-id").value() : null;
+                    String toAccountId = ctx.getOptionByLongName("to-account-id") != null ? ctx.getOptionByLongName("to-account-id").value() : null;
+                    String startDate = ctx.getOptionByLongName("start-date") != null ? ctx.getOptionByLongName("start-date").value() : null;
+                    String endDate = ctx.getOptionByLongName("end-date") != null ? ctx.getOptionByLongName("end-date").value() : null;
+
+                    TransactionFilter transactionFilter = new TransactionFilter(
+                            transactionType,
+                            fromAccountId != null && !fromAccountId.isBlank() ? Long.valueOf(fromAccountId) : null,
+                            toAccountId != null && !toAccountId.isBlank() ? Long.valueOf(toAccountId) : null,
+                            startDate,
+                            endDate
+                    );
+
+                    ctx.outputWriter().printf("%-30s | %-15s | %-30s | %-20s | %-20s | %-25s | %s%n", "Description", "Type", "From Account -> To Account", "From Amount", "To Amount", "Transaction Date", "Fee");
+                    transactionService.getTransactions(transactionFilter)
+                            .stream()
+                            .forEach(
+                                    transaction -> {
+                                        String fromAccountName = transaction.getFromAccount().getName() + " (ID: " + transaction.getFromAccount().getId() + ")";
+                                        String toAccountName = transaction.getToAccount().getName() + " (ID: " + transaction.getToAccount().getId() + ")";
+                                        ctx.outputWriter().printf("%-30s | %-15s | %-30s | %-20s | %-20s | %-25s | %s%n",
+                                                transaction.getDescription(),
+                                                transaction.getType(),
+                                                fromAccountName + " -> " + toAccountName,
+                                                transaction.getFromAmount() + " " + transaction.getFromAccount().getAsset().getSymbol(),
+                                                transaction.getToAmount() + " " + transaction.getToAccount().getAsset().getSymbol(),
+                                                transaction.getTransactionDate(),
+                                                transaction.getFeeAmount() + " " + transaction.getFromAccount().getAsset().getSymbol()
+                                        );
+                                    }
+                            );
+                });
+    }
 
     private void printAccountTree(List<Account> accounts, Account parent, int level) {
         accounts.stream()

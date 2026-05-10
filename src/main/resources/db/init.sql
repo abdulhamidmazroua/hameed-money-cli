@@ -1,104 +1,165 @@
 -- HameedMoneyCLI (HMC) Database Initialization Script
+-- Pure hierarchy: parent accounts have asset_id NULL; only leaf accounts reference an asset (currency / instrument).
+-- Aligns with Wealth Reporting Tool (HMC)/Account Hierarchy.canvas
 CREATE SCHEMA IF NOT EXISTS app_data;
 SET search_path to app_data, public;
 
--- Cleanup (Optional: Remove if running on an existing production DB)
 DROP TABLE IF EXISTS market_quote;
 DROP TABLE IF EXISTS ingestion_rule;
 DROP TABLE IF EXISTS transaction;
+DROP TABLE IF EXISTS source_system;
 DROP TABLE IF EXISTS account;
 DROP TABLE IF EXISTS asset;
-DROP TYPE IF EXISTS account_type;
-DROP TYPE IF EXISTS transaction_type;
-DROP TYPE IF EXISTS asset_category;
 
-CREATE TYPE account_type AS ENUM ('ASSET', 'LIABILITY', 'INCOME', 'EXPENSE');
-CREATE TYPE transaction_type AS ENUM ('CARD_PURCHASE', 'BANK_TRANSFER', 'STOCK_PURCHASE');
-CREATE TYPE asset_category AS ENUM ('STOCK', 'CASH', 'CRYPTO', 'COMMODITY');
+-- Enum-like columns use VARCHAR; allowed values are defined in Java (AccountType, TransactionType, AssetCategory).
 
--- 1. THE ASSET REGISTRY
--- Defines "What" can be owned.
 CREATE TABLE asset
 (
     id          BIGSERIAL PRIMARY KEY,
-    name        VARCHAR(255)       NOT NULL, -- e.g., "CIB Stock", "Egyptian Pound"
-    symbol      VARCHAR(20) UNIQUE NOT NULL, -- e.g., "COMI.CA", "EGP", "USD"
-    category    asset_category NOT NULL,
-    is_tradable BOOLEAN DEFAULT TRUE         -- False for static assets like "Physical Gold"
+    name        VARCHAR(255)       NOT NULL,
+    symbol      VARCHAR(20) UNIQUE NOT NULL,
+    category    VARCHAR(32)       NOT NULL,
+    is_tradable BOOLEAN DEFAULT TRUE
 );
 
--- 2. THE ACCOUNT HIERARCHY
--- Defines "Where" the assets live. Implements a Parent-Child tree.
 CREATE TABLE account
 (
     id          BIGSERIAL PRIMARY KEY,
     name        VARCHAR(255) NOT NULL,
-    master_type account_type NOT NULL, -- 'ASSET', 'LIABILITY', 'INCOME', 'EXPENSE'
-    parent_id   BIGINT,                -- Self-reference for hierarchy
-    asset_id    BIGINT       NOT NULL, -- The "Currency" of this account
-    running_balance DECIMAL(19, 4) DEFAULT 0, -- Cached balance for quick access
-    is_internal BOOLEAN DEFAULT TRUE,  -- TRUE: Your wallet/bank. FALSE: Categories/Vendors.
+    master_type VARCHAR(32) NOT NULL,
+    parent_id   BIGINT,
+    asset_id    BIGINT,
+    is_internal BOOLEAN DEFAULT TRUE,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at  TIMESTAMPTZ NOT NULL DEFAULT NULL,
+    updated_at  TIMESTAMPTZ DEFAULT NULL,
 
     CONSTRAINT fk_account_parent FOREIGN KEY (parent_id) REFERENCES account (id),
     CONSTRAINT fk_account_asset FOREIGN KEY (asset_id) REFERENCES asset (id)
 );
 
--- 3. THE TRANSACTION ENGINE
--- The "Source/Destination" model. Handles multi-currency bridges and fees.
-CREATE TABLE transaction
+CREATE TABLE source_system
 (
-    id               BIGSERIAL PRIMARY KEY,
-    description      TEXT   NOT NULL,
-    type             transaction_type NOT NULL,
-
-    -- Inflow/Outflow mechanics
-    from_account_id  BIGINT         NOT NULL,
-    from_amount      DECIMAL(19, 4) NOT NULL,  -- Amount leaving source
-    to_account_id    BIGINT         NOT NULL,
-    to_amount        DECIMAL(19, 4) NOT NULL,  -- Amount entering destination
-
-    fee_amount       DECIMAL(19, 4) DEFAULT 0, -- Commissions (Thndr/Bank fees)
-
-    -- System Metadata
-    external_ref_id  VARCHAR(255) UNIQUE,      -- Idempotency key (Hash of CSV row)
-    source_system    VARCHAR(50),              -- 'HSBC', 'THNDR', 'MANUAL'
-    metadata         JSONB,
-    created_at       TIMESTAMP      DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT fk_from_account FOREIGN KEY (from_account_id) REFERENCES account (id),
-    CONSTRAINT fk_to_account FOREIGN KEY (to_account_id) REFERENCES account (id)
+    id                    BIGSERIAL PRIMARY KEY,
+    name                  VARCHAR(50) NOT NULL,
+    code                  VARCHAR(20) NOT NULL UNIQUE,
+    anchored_account_id   BIGINT NOT NULL,
+    created_at            TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_source_system_account FOREIGN KEY (anchored_account_id) REFERENCES account (id)
 );
 
--- 4. THE INTELLIGENCE LAYER (Ingestion Rules)
--- Automates the "Description -> Category" mapping.
+CREATE TABLE transaction
+(
+    id                 BIGSERIAL PRIMARY KEY,
+    description        TEXT   NOT NULL,
+    type               VARCHAR(32) NOT NULL,
+    transaction_date   TIMESTAMPTZ NOT NULL,
+
+    from_account_id    BIGINT         NOT NULL,
+    from_amount        DECIMAL(19, 4) NOT NULL,
+    to_account_id      BIGINT         NOT NULL,
+    to_amount          DECIMAL(19, 4) NOT NULL,
+
+    fee_amount         DECIMAL(19, 4) DEFAULT 0,
+
+    external_ref_id    VARCHAR(255) UNIQUE,
+    source_system_id   BIGINT        NOT NULL,
+    is_system_adjustment BOOLEAN     NOT NULL DEFAULT FALSE,
+    metadata           JSONB,
+    created_at         TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_from_account FOREIGN KEY (from_account_id) REFERENCES account (id),
+    CONSTRAINT fk_to_account FOREIGN KEY (to_account_id) REFERENCES account (id),
+    CONSTRAINT fk_tx_source_system FOREIGN KEY (source_system_id) REFERENCES source_system (id)
+);
+
 CREATE TABLE ingestion_rule
 (
     id                BIGSERIAL PRIMARY KEY,
-    match_pattern     VARCHAR(255) NOT NULL, -- Regex or Keyword (e.g., "UBER.*")
-    target_account_id BIGINT       NOT NULL, -- Target Category Account
-    priority          INT DEFAULT 0,
+    match_pattern     VARCHAR(255) NOT NULL,
+    target_account_id BIGINT       NOT NULL,
+    priority          INT NOT NULL DEFAULT 0,
     created_at        TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT fk_rule_target FOREIGN KEY (target_account_id) REFERENCES account (id)
 );
 
--- 5. THE ORACLE (Market Quotes)
--- Stores historical prices for Net Worth recalculation.
 CREATE TABLE market_quote
 (
     id BIGSERIAL PRIMARY KEY,
-    base_asset_id BIGINT NOT NULL, -- The asset being priced (e.g., AAPL)
-    quote_asset_id BIGINT NOT NULL, -- The "Price Tag" asset (e.g., USD)
+    base_asset_id BIGINT NOT NULL,
+    quote_asset_id BIGINT NOT NULL,
     quote_date TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    price DECIMAL(19, 8) NOT NULL, -- Using high precision for crypto/FX
+    price DECIMAL(19, 8) NOT NULL,
     CONSTRAINT fk_base_asset FOREIGN KEY (base_asset_id) REFERENCES asset(id),
     CONSTRAINT fk_quote_asset FOREIGN KEY (quote_asset_id) REFERENCES asset(id),
     CONSTRAINT unique_daily_quote UNIQUE (base_asset_id, quote_asset_id, quote_date)
 );
 
--- Optional: Initial Seed Data for Base Currencies
 INSERT INTO asset (name, symbol, category, is_tradable)
 VALUES ('Egyptian Pound', 'EGP', 'CASH', FALSE),
-       ('US Dollar', 'USD', 'CASH', FALSE);
+       ('US Dollar', 'USD', 'CASH', FALSE),
+       ('Commercial International Bank', 'COMI.CA', 'STOCK', TRUE),
+       ('Abu Qir Fertilizers', 'ABUK.CA', 'STOCK', TRUE);
+
+-- Organizational folders only where useful; master_type strings match Java AccountType, not separate account rows.
+INSERT INTO account (name, master_type, parent_id, asset_id, is_internal)
+VALUES ('Cash', 'ASSET', NULL, NULL, TRUE),
+       ('Stock', 'ASSET', NULL, NULL, TRUE),
+       ('Fixed', 'ASSET', NULL, NULL, TRUE),
+       ('Debt', 'LIABILITY', NULL, NULL, TRUE);
+
+-- Cash bucket + leaves
+INSERT INTO account (name, master_type, parent_id, asset_id, is_internal)
+VALUES ('HSBC Current', 'ASSET', (SELECT id FROM account WHERE name = 'Cash'), (SELECT id FROM asset WHERE symbol = 'EGP'), TRUE),
+       ('Misr Current', 'ASSET', (SELECT id FROM account WHERE name = 'Cash'), (SELECT id FROM asset WHERE symbol = 'EGP'), TRUE),
+       ('Thndr Wallet', 'ASSET', (SELECT id FROM account WHERE name = 'Cash'), (SELECT id FROM asset WHERE symbol = 'EGP'), TRUE),
+       ('Loan', 'LIABILITY', (SELECT id FROM account WHERE name = 'Cash'), (SELECT id FROM asset WHERE symbol = 'EGP'), TRUE);
+
+-- Stock: portfolio folders + instrument leaves
+INSERT INTO account (name, master_type, parent_id, asset_id, is_internal)
+VALUES ('Thndr Portfolio', 'ASSET', (SELECT id FROM account WHERE name = 'Stock'), NULL, TRUE),
+       ('Etoro Portfolio', 'ASSET', (SELECT id FROM account WHERE name = 'Stock'), NULL, TRUE);
+
+INSERT INTO account (name, master_type, parent_id, asset_id, is_internal)
+VALUES ('CIB Stock', 'ASSET', (SELECT id FROM account WHERE name = 'Thndr Portfolio'), (SELECT id FROM asset WHERE symbol = 'COMI.CA'), TRUE),
+       ('Abu Qir', 'ASSET', (SELECT id FROM account WHERE name = 'Thndr Portfolio'), (SELECT id FROM asset WHERE symbol = 'ABUK.CA'), TRUE);
+
+INSERT INTO account (name, master_type, parent_id, asset_id, is_internal)
+VALUES ('Property', 'ASSET', (SELECT id FROM account WHERE name = 'Fixed'), NULL, TRUE);
+
+-- Income / expense leaves (no enum-named parent folders — parent_id NULL)
+INSERT INTO account (name, master_type, parent_id, asset_id, is_internal)
+VALUES ('Basic Salary', 'INCOME', NULL, (SELECT id FROM asset WHERE symbol = 'EGP'), FALSE),
+       ('Bonus', 'INCOME', NULL, (SELECT id FROM asset WHERE symbol = 'EGP'), FALSE);
+
+INSERT INTO account (name, master_type, parent_id, asset_id, is_internal)
+VALUES ('Food', 'EXPENSE', NULL, (SELECT id FROM asset WHERE symbol = 'EGP'), FALSE),
+       ('Groceries', 'EXPENSE', NULL, (SELECT id FROM asset WHERE symbol = 'EGP'), FALSE),
+       ('Subscriptions', 'EXPENSE', NULL, (SELECT id FROM asset WHERE symbol = 'EGP'), FALSE),
+       ('Other', 'EXPENSE', NULL, (SELECT id FROM asset WHERE symbol = 'EGP'), FALSE),
+       ('PocketMoney', 'EXPENSE', NULL, (SELECT id FROM asset WHERE symbol = 'EGP'), FALSE),
+       ('MobileRecharge', 'EXPENSE', NULL, (SELECT id FROM asset WHERE symbol = 'EGP'), FALSE),
+       ('Family', 'EXPENSE', NULL, (SELECT id FROM asset WHERE symbol = 'EGP'), FALSE),
+       ('Charity', 'EXPENSE', NULL, (SELECT id FROM asset WHERE symbol = 'EGP'), FALSE),
+       ('Lending', 'EXPENSE', NULL, (SELECT id FROM asset WHERE symbol = 'EGP'), FALSE);
+
+-- System adjustments (see System Adjustments.md): SYSTEM master_type keeps them out of income/expense P&L; pair with is_system_adjustment on transaction
+INSERT INTO account (name, master_type, parent_id, asset_id, is_internal)
+VALUES ('Opening Balance', 'SYSTEM', NULL, (SELECT id FROM asset WHERE symbol = 'EGP'), FALSE),
+       ('Balance Increase Adjustment', 'SYSTEM', NULL, (SELECT id FROM asset WHERE symbol = 'EGP'), FALSE),
+       ('Balance Decrease Adjustment', 'SYSTEM', NULL, (SELECT id FROM asset WHERE symbol = 'EGP'), FALSE);
+
+INSERT INTO source_system (name, code, anchored_account_id)
+VALUES ('HSBC Egypt App', 'HSBC_APP', (SELECT id FROM account WHERE name = 'HSBC Current')),
+       ('Banque Misr App', 'BANQUE_MISR_APP', (SELECT id FROM account WHERE name = 'Misr Current')),
+       ('Thndr App', 'THNDR_APP', (SELECT id FROM account WHERE name = 'Thndr Wallet')),
+       ('Manual entry', 'MANUAL_ENTRY', (SELECT id FROM account WHERE name = 'HSBC Current'));
+
+INSERT INTO ingestion_rule (match_pattern, target_account_id, priority)
+VALUES ('(?i).*Thndr.*', (SELECT id FROM account WHERE name = 'Thndr Wallet'), 200),
+       ('(?i).*(Life Makers|Zakat|Sadakat|Bait El).*', (SELECT id FROM account WHERE name = 'Charity'), 190),
+       ('(?i).*(Mobile Recharge|Land Line|Home Internet|Purchase from).*', (SELECT id FROM account WHERE name = 'MobileRecharge'), 180),
+       ('(?i).*CARD TRANSACTION.*ATM.*', (SELECT id FROM account WHERE name = 'PocketMoney'), 175),
+       ('(?i).*CARD TRANSACTION.*', (SELECT id FROM account WHERE name = 'Food'), 50),
+       ('(?i).*Instant Transfer from.*', (SELECT id FROM account WHERE name = 'Basic Salary'), 40),
+       ('(?i).*', (SELECT id FROM account WHERE name = 'Other'), -1000);

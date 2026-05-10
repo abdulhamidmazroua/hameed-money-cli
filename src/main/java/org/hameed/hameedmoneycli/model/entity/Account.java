@@ -10,8 +10,7 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-import java.math.BigDecimal;
-import java.time.OffsetDateTime;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -35,18 +34,16 @@ public class Account {
     @Column(name = "master_type", nullable = false)
     private AccountType masterType;
 
-    @Column(name = "running_balance")
-    private BigDecimal runningBalance;
-
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne
     @JoinColumn(name = "parent_id")
     private Account parent;
 
-    @OneToMany(mappedBy = "parent")
-    private List<Account> children = new ArrayList<>();
-
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "asset_id", nullable = false)
+    /**
+     * Null for organizational (parent) nodes; non-null only for leaf accounts where balances and
+     * transactions are denominated in this asset.
+     */
+    @ManyToOne
+    @JoinColumn(name = "asset_id")
     private Asset asset;
 
     @Column(name = "is_internal", nullable = false)
@@ -54,10 +51,10 @@ public class Account {
 
     @Column(name = "created_at", nullable = false, updatable = false)
     @CreatedDate
-    private OffsetDateTime createdAt;
+    private Instant createdAt;
 
     @Column(name = "updated_at", nullable = true, insertable = false)
     @LastModifiedDate
-    private OffsetDateTime updatedAt;
+    private Instant updatedAt;
 
 }

@@ -3,7 +3,7 @@ package org.hameed.hameedmoneycli.commands;
 import lombok.RequiredArgsConstructor;
 import org.hameed.hameedmoneycli.enums.AccountType;
 import org.hameed.hameedmoneycli.enums.AssetCategory;
-import org.hameed.hameedmoneycli.enums.SourceSystem;
+import org.hameed.hameedmoneycli.enums.SourceSystemCode;
 import org.hameed.hameedmoneycli.enums.TransactionType;
 import org.hameed.hameedmoneycli.model.dto.AccountCreateDto;
 import org.hameed.hameedmoneycli.model.dto.AssetCreateDto;
@@ -13,6 +13,7 @@ import org.hameed.hameedmoneycli.model.entity.Account;
 import org.hameed.hameedmoneycli.model.entity.Asset;
 import org.hameed.hameedmoneycli.service.AccountService;
 import org.hameed.hameedmoneycli.service.AssetService;
+import org.hameed.hameedmoneycli.service.IngestionService;
 import org.hameed.hameedmoneycli.service.TransactionService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -23,8 +24,12 @@ import org.springframework.shell.core.command.CommandOption;
 import org.springframework.shell.jline.tui.component.flow.ComponentFlow;
 import org.springframework.shell.jline.tui.component.flow.SelectItem;
 
+import java.io.IOException;
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Configuration
 @RequiredArgsConstructor
@@ -34,6 +39,7 @@ public class CommandsConfig {
     private final AssetService assetService;
     private final AccountService accountService;
     private final TransactionService transactionService;
+    private final IngestionService ingestionService;
 
     // Assets and Accounts
     @Bean
@@ -105,22 +111,26 @@ public class CommandsConfig {
                                         .toList())
                                 .and().build().run();
 
-                        // selecting the specific asset that this account accumulates
-                    ComponentFlow.ComponentFlowResult assetResult = componentFlowBuilder.clone().reset()
+                        List<SelectItem> assetChoices = new ArrayList<>();
+                        assetChoices.add(SelectItem.of("(Folder — organizational only, no asset / not for postings)", ""));
+                        assetChoices.addAll(assetService.getAllAssets().stream()
+                                .map(asset -> SelectItem.of(asset.getName() + " (" + asset.getSymbol() + ")", asset.getId().toString()))
+                                .toList());
+
+                        ComponentFlow.ComponentFlowResult assetResult = componentFlowBuilder.clone().reset()
                             .withSingleItemSelector("assetId")
-                            .name("Select the asset that this account accumulates: ")
-                            .selectItems(assetService.getAllAssets().stream()
-                                    .map(asset -> SelectItem.of(asset.getName(), asset.getId().toString()))
-                                    .toList())
+                            .name("Leaf: pick an asset. Parent folder: choose the first option.")
+                            .selectItems(assetChoices)
                             .and().build().run();
 
                         String accountType = accountTypeResult.getContext().get("accountType", String.class);
                         String assetId = assetResult.getContext().get("assetId", String.class);
+                        Long assetIdLong = (assetId != null && !assetId.isBlank()) ? Long.valueOf(assetId) : null;
                         accountService.createAccount(new AccountCreateDto(
                                 accountName,
                                 AccountType.valueOf(accountType),
                                 parentAccountId != null && !parentAccountId.isBlank() ? Long.valueOf(parentAccountId) : null,
-                                Long.valueOf(assetId),
+                                assetIdLong,
                                 AccountType.valueOf(accountType).isInternal() // TODO: ask user if this account is internal or not (maybe based on the account type or other factors)
                         ));
                 });
@@ -131,24 +141,20 @@ public class CommandsConfig {
         return Command.builder()
                 .name("account list")
                 .description("List all accounts")
-                .help("List all accounts. Usage: `account ls --tree`")
-                .options(
-                        CommandOption.with()
-                                .shortName('t')
-                                .longName("tree")
-                                .required(false)
-                                .type(boolean.class)
-                                .build())
+                .help("List all accounts. Usage: `account list`")
                 .execute(ctx -> {
                     List<Account> accounts = accountService.getAllAccounts();
-                    boolean treeView = ctx.getOptionByLongName("tree") != null && ctx.getOptionByLongName("tree").value() != null && Boolean.valueOf(ctx.getOptionByLongName("tree").value());
-                    if (treeView) {
-                        // print accounts in a tree view
-                        printAccountTree(accounts, null, 0);
-                    } else {
-                        // print accounts in a flat list
-                        accounts.forEach(account -> ctx.outputWriter().println(account.getName() + " (ID: " + account.getId() + ") - Type: " + account.getMasterType() + " - Asset: " + account.getAsset().getName() + " - Parent Account: " + (account.getParent() != null ? account.getParent().getName() : "None")));
-                    }
+
+                    // Group by master type
+                    Map<AccountType, List<Account>> accountsByType = accounts.stream()
+                            .collect(Collectors.groupingBy(Account::getMasterType));
+
+                    // Print each type
+                    accountsByType.forEach((masterType, accountsInType) -> {
+                        System.out.println("\u001B[1m\u001B[96m" + masterType + "\u001B[0m");
+                        printAccountTree(accountsInType, null, 0);
+                        System.out.println();
+                    });
                 });
     }
 
@@ -256,7 +262,7 @@ public class CommandsConfig {
                             new BigDecimal(fromAmount),
                             new BigDecimal(toAmount),
                             date,
-                            SourceSystem.MANUAL_ENTRY,
+                            SourceSystemCode.MANUAL_ENTRY,
                             new BigDecimal(feeAmount)
                     );
 
@@ -328,21 +334,73 @@ public class CommandsConfig {
                                                 transaction.getDescription(),
                                                 transaction.getType(),
                                                 fromAccountName + " -> " + toAccountName,
-                                                transaction.getFromAmount() + " " + transaction.getFromAccount().getAsset().getSymbol(),
-                                                transaction.getToAmount() + " " + transaction.getToAccount().getAsset().getSymbol(),
+                                                transaction.getFromAmount() + " " + assetSymbol(transaction.getFromAccount()),
+                                                transaction.getToAmount() + " " + assetSymbol(transaction.getToAccount()),
                                                 transaction.getTransactionDate(),
-                                                transaction.getFeeAmount() + " " + transaction.getFromAccount().getAsset().getSymbol()
+                                                transaction.getFeeAmount() + " " + assetSymbol(transaction.getFromAccount())
                                         );
                                     }
                             );
                 });
     }
 
+
+    // Ingestion
+    @Bean
+    public Command ingestTransactions() {
+        return Command.builder()
+                .name("ingest")
+                .description("Ingest transactions from a file")
+                .help("Ingest transactions from a file. Usage: `ingest --source HSBC_APP --file-path /path/to/transactions.csv`")
+                .options(
+                        CommandOption.with()
+                                .shortName('f')
+                                .longName("file-path")
+                                .required(true)
+                                .type(String.class)
+                                .build(),
+                        CommandOption.with()
+                                .shortName('s')
+                                .longName("source")
+                                .required(true)
+                                .type(String.class)
+                                .build()
+                )
+                .execute(ctx -> {
+                    String filePath = getOption(ctx, "file-path", "<file-path> option is missing. Usage: `ingest --source HSBC_APP --file-path /path/to/transactions.csv`");
+                    String source = getOption(ctx, "source", "<source> option is missing. Usage : `ingest --source HSBC_APP --file-path /path/to/transactions.csv`");
+                    try {
+                        ingestionService.ingestTransactions(source, filePath, ctx);
+                    } catch (IOException e) {
+                        throw new IllegalStateException("Ingestion failed: " + e.getMessage(), e);
+                    }
+                });
+    }
+
     private void printAccountTree(List<Account> accounts, Account parent, int level) {
+        String indent = "  ".repeat(level);
+        String treeConnector = level == 0 ? "" : "├─ ";
+
         accounts.stream()
-                .filter(account -> (parent == null && account.getParent() == null) || (account.getParent() != null && account.getParent().getId().equals(parent.getId())))
+                .filter(account -> {
+                    // Root level: show accounts with no parent
+                    if (parent == null) {
+                        return account.getParent() == null;
+                    }
+                    // Child level: show accounts whose parent matches
+                    return account.getParent() != null && account.getParent().getId().equals(parent.getId());
+                })
                 .forEach(account -> {
-                    System.out.println("  ".repeat(level) + "- " + account.getName() + " (ID: " + account.getId() + ") - Type: " + account.getMasterType() + " - Asset: " + account.getAsset().getName());
+                    String assetLabel = account.getAsset() == null
+                            ? "(folder)"
+                            : account.getAsset().getName() + " (" + account.getAsset().getSymbol() + ")";
+                    String line = indent + treeConnector +
+                            "\u001B[1m\u001B[37m" + account.getName() + "\u001B[0m " +  // Bold white
+                            "\u001B[2m\u001B[33m(ID: " + account.getId() + ")\u001B[0m " +  // Dim yellow
+                            // REMOVED: "\u001B[92mType: " + account.getMasterType() + "\u001B[0m " +   // No longer needed
+                            "\u001B[95mAsset: " + assetLabel + "\u001B[0m";  // Bright magenta
+
+                    System.out.println(line);
                     printAccountTree(accounts, account, level + 1);
                 });
     }
@@ -361,5 +419,9 @@ public class CommandsConfig {
    private String getArgument(CommandContext ctx, int index, String errorMessage) {
        CommandArgument arg = ctx.getArgumentByIndex(index);
        return validateAndGet(arg != null ? arg.value() : null, errorMessage);
+   }
+
+   private static String assetSymbol(Account account) {
+       return account.getAsset() == null ? "—" : account.getAsset().getSymbol();
    }
 }

@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.CreatedDate;
 
 import java.math.BigDecimal;
-import java.time.OffsetDateTime;
+import java.time.Instant;
 
 @Entity
 @Table(name = "market_quote", uniqueConstraints = {
@@ -22,17 +22,17 @@ public class MarketQuote {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @ManyToOne
     @JoinColumn(name = "base_asset_id", nullable = false)
     private Asset baseAsset;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @ManyToOne
     @JoinColumn(name = "quote_asset_id", nullable = false)
     private Asset quoteAsset;
 
     @Column(name = "quote_date", nullable = false)
     @CreatedDate
-    private OffsetDateTime quoteDate;
+    private Instant quoteDate;
 
     @Column(nullable = false, precision = 19, scale = 8)
     private BigDecimal price;

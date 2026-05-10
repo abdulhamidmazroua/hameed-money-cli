@@ -5,7 +5,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hameed.hameedmoneycli.enums.SourceSystem;
 import org.hameed.hameedmoneycli.enums.TransactionType;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -13,7 +12,7 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.math.BigDecimal;
-import java.time.OffsetDateTime;
+import java.time.Instant;
 
 @Entity
 @EntityListeners(AuditingEntityListener.class)
@@ -36,16 +35,16 @@ public class Transaction {
     private TransactionType type;
 
     @Column(name = "transaction_date", nullable = false)
-    private OffsetDateTime transactionDate;
+    private Instant transactionDate;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @ManyToOne
     @JoinColumn(name = "from_account_id", nullable = false)
     private Account fromAccount;
 
     @Column(name = "from_amount", nullable = false, precision = 19, scale = 4)
     private BigDecimal fromAmount;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @ManyToOne
     @JoinColumn(name = "to_account_id", nullable = false)
     private Account toAccount;
 
@@ -58,9 +57,12 @@ public class Transaction {
     @Column(name = "external_ref_id", unique = true, length = 255)
     private String externalRefId;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "source_system", length = 50)
+    @ManyToOne
+    @JoinColumn(name = "source_system_id")
     private SourceSystem sourceSystem;
+
+    @Column(name = "is_system_adjustment", nullable = false)
+    private Boolean isSystemAdjustment;
 
     @Column(columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
@@ -68,6 +70,6 @@ public class Transaction {
 
     @Column(name = "created_at", nullable = false, updatable = false)
     @CreatedDate
-    private OffsetDateTime createdAt;
+    private Instant createdAt;
 
 }

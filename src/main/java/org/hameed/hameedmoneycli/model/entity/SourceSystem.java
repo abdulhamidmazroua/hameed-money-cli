@@ -2,6 +2,7 @@ package org.hameed.hameedmoneycli.model.entity;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.CreatedDate;
@@ -11,28 +12,29 @@ import java.time.Instant;
 
 @Entity
 @EntityListeners(AuditingEntityListener.class)
-@Table(name = "ingestion_rule")
+@Table(name = "source_system")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class IngestionRule {
+@Builder
+public class SourceSystem {
 
-    @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id
     private Long id;
 
-    @Column(name = "match_pattern", nullable = false, length = 255)
-    private String matchPattern;
+    @Column(name = "name", nullable = false, length = 50)
+    private String name;
 
-    @ManyToOne
-    @JoinColumn(name = "target_account_id", nullable = false)
-    private Account targetAccount;
+    @Column(name = "code", nullable = false, length = 20, unique = true)
+    private String code;
 
-    @Column(nullable = false)
-    private Integer priority = 0;
+    @OneToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "anchored_account_id", nullable = false)
+    private Account anchoredAccount;
 
-    @Column(nullable = false, updatable = false)
     @CreatedDate
+    @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
 }

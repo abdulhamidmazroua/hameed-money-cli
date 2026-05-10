@@ -8,8 +8,6 @@ import org.hameed.hameedmoneycli.repository.AccountRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.TreeSet;
-
 @Service
 @RequiredArgsConstructor
 public class AccountService {
@@ -25,7 +23,10 @@ public class AccountService {
             parentAccount = accountRepository.findById(newAccount.parentAccountId())
                     .orElseThrow(() -> new IllegalArgumentException("Parent account with ID " + newAccount.parentAccountId() + " not found"));
         }
-        Asset asset = assetService.getAssetById(newAccount.assetId());
+        Asset asset = null;
+        if (newAccount.assetId() != null) {
+            asset = assetService.getAssetById(newAccount.assetId());
+        }
 
         Account account = Account.builder()
                 .name(newAccount.name())

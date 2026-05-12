@@ -323,24 +323,84 @@ public class CommandsConfig {
                             endDate
                     );
 
-                    ctx.outputWriter().printf("%-30s | %-15s | %-30s | %-20s | %-20s | %-25s | %s%n", "Description", "Type", "From Account -> To Account", "From Amount", "To Amount", "Transaction Date", "Fee");
+                ctx.outputWriter().printf("%-12s | %-50s | %-18s | %-18s | %-20s | %-12s%n", "Type", "From Account -> To Account", "From Amount", "To Amount", "Date", "Fee");
                     transactionService.getTransactions(transactionFilter)
-                            .stream()
-                            .forEach(
-                                    transaction -> {
-                                        String fromAccountName = transaction.getFromAccount().getName() + " (ID: " + transaction.getFromAccount().getId() + ")";
-                                        String toAccountName = transaction.getToAccount().getName() + " (ID: " + transaction.getToAccount().getId() + ")";
-                                        ctx.outputWriter().printf("%-30s | %-15s | %-30s | %-20s | %-20s | %-25s | %s%n",
-                                                transaction.getDescription(),
-                                                transaction.getType(),
-                                                fromAccountName + " -> " + toAccountName,
-                                                transaction.getFromAmount() + " " + assetSymbol(transaction.getFromAccount()),
-                                                transaction.getToAmount() + " " + assetSymbol(transaction.getToAccount()),
-                                                transaction.getTransactionDate(),
-                                                transaction.getFeeAmount() + " " + assetSymbol(transaction.getFromAccount())
-                                        );
-                                    }
-                            );
+                          .stream()
+                          .forEach(
+                                  transaction -> {
+                                      String fromAccountName = transaction.getFromAccount().getName() + " (ID: " + transaction.getFromAccount().getId() + ")";
+                                      String toAccountName = transaction.getToAccount().getName() + " (ID: " + transaction.getToAccount().getId() + ")";
+                                      String accountPair = fromAccountName + " -> " + toAccountName;
+                                      ctx.outputWriter().printf("%-12s | %-50s | %-18s | %-18s | %-20s | %-12s%n",
+                                              transaction.getType(),
+                                              accountPair.length() > 50 ? accountPair.substring(0, 47) + "..." : accountPair,
+                                              transaction.getFromAmount() + " " + assetSymbol(transaction.getFromAccount()),
+                                              transaction.getToAmount() + " " + assetSymbol(transaction.getToAccount()),
+                                              transaction.getTransactionDate(),
+                                              transaction.getFeeAmount() + " " + assetSymbol(transaction.getFromAccount())
+                                      );
+                                  }
+                              );
+                            }
+                        );
+    }
+
+    @Bean
+    public Command generateTransactionReport() {
+        return Command.builder()
+                .name("transaction report")
+                .description("Generate a transaction report")
+                .help("Generate a transaction report. Usage: `transaction report --transaction-type CARD_PURCHASE --from-account-id 1 --to-account-id 2 --start-date 2024-01-01 --end-date 2024-12-31` \n Note: all options are optional, you can filter transactions by from account, to account, start date, end date, and transaction type.")
+                .options(
+                        CommandOption.with()
+                                .shortName('T')
+                                .longName("transaction-type")
+                                .required(false)
+                                .type(String.class)
+                                .build(),
+                        CommandOption.with()
+                                .shortName('f')
+                                .longName("from-account-id")
+                                .required(false)
+                                .type(String.class)
+                                .build(),
+                        CommandOption.with()
+                                .shortName('t')
+                                .longName("to-account-id")
+                                .required(false)
+                                .type(String.class)
+                                .build(),
+                        CommandOption.with()
+                                .shortName('s')
+                                .longName("start-date")
+                                .required(false)
+                                .type(String.class)
+                                .build(),
+                        CommandOption.with()
+                                .shortName('e')
+                                .longName("end-date")
+                                .required(false)
+                                .type(String.class)
+                                .build()
+                )
+                .execute(ctx -> {
+                    String transactionType = ctx.getOptionByLongName("transaction-type") != null ? ctx.getOptionByLongName("transaction-type").value() : null;
+                    String fromAccountId = ctx.getOptionByLongName("from-account-id") != null ? ctx.getOptionByLongName("from-account-id").value() : null;
+                    String toAccountId = ctx.getOptionByLongName("to-account-id") != null ? ctx.getOptionByLongName("to-account-id").value() : null;
+                    String startDate = ctx.getOptionByLongName("start-date") != null ? ctx.getOptionByLongName("start-date").value() : null;
+                    String endDate = ctx.getOptionByLongName("end-date") != null ? ctx.getOptionByLongName("end-date").value() : null;
+
+                    TransactionFilter transactionFilter = new TransactionFilter(
+                            transactionType,
+                            fromAccountId != null && !fromAccountId.isBlank() ? Long.valueOf(fromAccountId) : null,
+                            toAccountId != null && !toAccountId.isBlank() ? Long.valueOf(toAccountId) : null,
+                            startDate,
+                            endDate);
+                    try {
+                        transactionService.generateTransactionReport(transactionFilter);
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
                 });
     }
 
@@ -404,6 +464,8 @@ public class CommandsConfig {
                     printAccountTree(accounts, account, level + 1);
                 });
     }
+
+
 
    private String validateAndGet(String value, String errorMessage) {
        if (value == null || value.isBlank()) {

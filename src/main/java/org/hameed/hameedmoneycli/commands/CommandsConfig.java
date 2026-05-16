@@ -5,22 +5,16 @@ import org.hameed.hameedmoneycli.enums.AccountType;
 import org.hameed.hameedmoneycli.enums.AssetCategory;
 import org.hameed.hameedmoneycli.enums.SourceSystemCode;
 import org.hameed.hameedmoneycli.enums.TransactionType;
-import org.hameed.hameedmoneycli.model.dto.AccountCreateDto;
-import org.hameed.hameedmoneycli.model.dto.AssetCreateDto;
-import org.hameed.hameedmoneycli.model.dto.TransactionCreateDto;
-import org.hameed.hameedmoneycli.model.dto.TransactionFilter;
+import org.hameed.hameedmoneycli.model.dto.*;
 import org.hameed.hameedmoneycli.model.entity.Account;
 import org.hameed.hameedmoneycli.model.entity.Asset;
-import org.hameed.hameedmoneycli.service.AccountService;
-import org.hameed.hameedmoneycli.service.AssetService;
-import org.hameed.hameedmoneycli.service.IngestionService;
-import org.hameed.hameedmoneycli.service.TransactionService;
+import org.hameed.hameedmoneycli.service.*;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.shell.core.command.Command;
-import org.springframework.shell.core.command.CommandArgument;
-import org.springframework.shell.core.command.CommandContext;
-import org.springframework.shell.core.command.CommandOption;
+import org.springframework.shell.core.command.*;
+import org.springframework.shell.core.command.availability.Availability;
+import org.springframework.shell.core.command.availability.AvailabilityProvider;
+import org.springframework.shell.core.command.exit.ExitStatusExceptionMapper;
 import org.springframework.shell.jline.tui.component.flow.ComponentFlow;
 import org.springframework.shell.jline.tui.component.flow.SelectItem;
 
@@ -40,6 +34,7 @@ public class CommandsConfig {
     private final AccountService accountService;
     private final TransactionService transactionService;
     private final IngestionService ingestionService;
+    private final IngestionRuleService ingestionRuleService;
 
     // Assets and Accounts
     @Bean
@@ -60,12 +55,12 @@ public class CommandsConfig {
                             .required(true)
                             .type(String.class)
                             .build())
-//                .exitStatusExceptionMapper(exceptionMapper())
-//                .availabilityProvider(availabilityProvider())
+                .exitStatusExceptionMapper(exceptionMapper())
+                .availabilityProvider(availabilityProvider())
                 .execute(ctx -> {
                     String usage = "Usage: `asset register --name \"Commercial International Bank\" --symbol COMI.CA`";
-                    String assetName = getOption(ctx, "name", "<name> option is missing. \n" + usage);
-                    String symbol = getOption(ctx, "symbol", "<name> option is missing. \n" + usage);
+                    String assetName = getOption(ctx, 'n', "name", "<name> option is missing. \n" + usage);
+                    String symbol = getOption(ctx, 's', "symbol", "<name> option is missing. \n" + usage);
 
                     ComponentFlow.ComponentFlowResult assetCategoryResult = componentFlowBuilder.clone().reset()
                             .withSingleItemSelector("assetCategory")
@@ -97,9 +92,11 @@ public class CommandsConfig {
                                 .required(false)
                                 .type(String.class)
                                 .build())
+                .exitStatusExceptionMapper(exceptionMapper())
+                .availabilityProvider(availabilityProvider())
                 .execute(ctx -> {
                         String usage = "Usage: `account create --name \"Cash Account\" --parent-account-id 3 `";
-                        String accountName = getOption(ctx, "name", "<name> option is missing. \n" + usage);
+                        String accountName = getOption(ctx, 'n', "name", "<name> option is missing. \n" + usage);
                         String parentAccountId = ctx.getOptionByLongName("parent-account-id").value();
 
                         // selecting the account type (master type) for the account
@@ -142,6 +139,8 @@ public class CommandsConfig {
                 .name("account list")
                 .description("List all accounts")
                 .help("List all accounts. Usage: `account list`")
+                .availabilityProvider(availabilityProvider())
+                .exitStatusExceptionMapper(exceptionMapper())
                 .execute(ctx -> {
                     List<Account> accounts = accountService.getAllAccounts();
 
@@ -164,6 +163,8 @@ public class CommandsConfig {
                 .name("asset list")
                 .description("List all assets")
                 .help("List all assets. Usage: `asset ls`")
+                .availabilityProvider(availabilityProvider())
+                .exitStatusExceptionMapper(exceptionMapper())
                 .execute(ctx -> {
                     List<Asset> assets = assetService.getAllAssets();
                     assets.forEach(asset -> ctx.outputWriter().println(asset.getName() + " (ID: " + asset.getId() + ") - Symbol: " + asset.getSymbol() + " - Category: " + asset.getCategory()));
@@ -178,6 +179,9 @@ public class CommandsConfig {
                 .name("transaction add")
                 .description("Add a new transaction")
                 .help("Add a new transaction. Usage: `tx add --from-amount 100 --to-amount 100 --fee-amount 2.2 --date 2024-01-01 --description \"Grocery shopping\" --from-account-id 1 --to-account-id 2` \n Note: you can also use `--amount` option instead of `--from-amount` and `--to-amount` if the amounts are the same for both sides of the transaction.")
+                .availabilityProvider(availabilityProvider())
+                .exitStatusExceptionMapper(exceptionMapper())
+
                 .options(
                         CommandOption.with()
                                 .shortName('a')
@@ -229,9 +233,9 @@ public class CommandsConfig {
                             .build())
                 .execute(ctx -> {
                     String usage = "Usage: `tx add --from-amount 100 --to-amount 100 --fee-amount 2.2 --date 2024-01-01 --description \"Grocery shopping\" --from-account-id 1 --to-account-id 2` \n Note: you can also use `--amount` option instead of `--from-amount` and `--to-amount` if the amounts are the same for both sides of the transaction.";
-                    String date = getOption(ctx, "date", "<date> option is missing. \n" + usage);
-                    String fromAccountId = getOption(ctx, "from-account-id", "<from-account-id> option is missing. \n" + usage);
-                    String toAccountId = getOption(ctx, "to-account-id", "<to-account-id> option is missing. \n" + usage);
+                    String date = getOption(ctx, 'd', "date", "<date> option is missing. \n" + usage);
+                    String fromAccountId = getOption(ctx, 'F', "from-account-id", "<from-account-id> option is missing. \n" + usage);
+                    String toAccountId = getOption(ctx, 'T', "to-account-id", "<to-account-id> option is missing. \n" + usage);
                     String description = ctx.getOptionByLongName("description").value();
 
                     String amount = ctx.getOptionByLongName("amount").value();
@@ -243,8 +247,8 @@ public class CommandsConfig {
                         fromAmount = amount;
                         toAmount = amount;
                     } else {
-                        fromAmount = getOption(ctx, "from-amount", "<amount> or <from-amount> option is missing. \n" + usage);
-                        toAmount = getOption(ctx, "to-amount", "<amount> or <to-amount> option is missing. \n" + usage);
+                        fromAmount = getOption(ctx, 'f', "from-amount", "<amount> or <from-amount> option is missing. \n" + usage);
+                        toAmount = getOption(ctx, 't', "to-amount", "<amount> or <to-amount> option is missing. \n" + usage);
                     }
 
                     ComponentFlow.ComponentFlowResult transactionTypeResult = componentFlowBuilder.clone().reset()
@@ -276,6 +280,9 @@ public class CommandsConfig {
                 .name("transaction list")
                 .description("List all transactions")
                 .help("List all transactions. Usage: `tx ls --transaction-type CARD_PURCHASE --from-account-id 1 --to-account-id 2 --start-date 2024-01-01 --end-date 2024-12-31` \n Note: all options are optional, you can filter transactions by from account, to account, start date, end date, and transaction type.")
+                .availabilityProvider(availabilityProvider())
+                .exitStatusExceptionMapper(exceptionMapper())
+
                 .options(
                         CommandOption.with()
                                 .shortName('T')
@@ -351,6 +358,9 @@ public class CommandsConfig {
                 .name("transaction report")
                 .description("Generate a transaction report")
                 .help("Generate a transaction report. Usage: `transaction report --transaction-type CARD_PURCHASE --from-account-id 1 --to-account-id 2 --start-date 2024-01-01 --end-date 2024-12-31` \n Note: all options are optional, you can filter transactions by from account, to account, start date, end date, and transaction type.")
+                .availabilityProvider(availabilityProvider())
+                .exitStatusExceptionMapper(exceptionMapper())
+
                 .options(
                         CommandOption.with()
                                 .shortName('T')
@@ -412,6 +422,9 @@ public class CommandsConfig {
                 .name("ingest")
                 .description("Ingest transactions from a file")
                 .help("Ingest transactions from a file. Usage: `ingest --source HSBC_APP --file-path /path/to/transactions.csv`")
+                .availabilityProvider(availabilityProvider())
+                .exitStatusExceptionMapper(exceptionMapper())
+
                 .options(
                         CommandOption.with()
                                 .shortName('f')
@@ -427,13 +440,45 @@ public class CommandsConfig {
                                 .build()
                 )
                 .execute(ctx -> {
-                    String filePath = getOption(ctx, "file-path", "<file-path> option is missing. Usage: `ingest --source HSBC_APP --file-path /path/to/transactions.csv`");
-                    String source = getOption(ctx, "source", "<source> option is missing. Usage : `ingest --source HSBC_APP --file-path /path/to/transactions.csv`");
+                    String filePath = getOption(ctx, 'f', "file-path", "<file-path> option is missing. Usage: `ingest --source HSBC_APP --file-path /path/to/transactions.csv`");
+                    String source = getOption(ctx, 's', "source", "<source> option is missing. Usage : `ingest --source HSBC_APP --file-path /path/to/transactions.csv`");
                     try {
                         ingestionService.ingestTransactions(source, filePath, ctx);
                     } catch (IOException e) {
                         throw new IllegalStateException("Ingestion failed: " + e.getMessage(), e);
                     }
+                });
+    }
+
+    @Bean
+    public Command addRule() {
+        return Command.builder()
+                .name("rule add")
+                .description("Add a new ingestion rule")
+                .help("Add a new ingestion rule. Usage: `rule add --pattern \"regex\" --target <account-number> ` and then follow the prompts to create a new rule.")
+                .options(CommandOption.with()
+                        .shortName('p')
+                        .longName("pattern")
+                        .required(true)
+                        .type(String.class)
+                        .build(),
+                    CommandOption.with()
+                        .shortName('t')
+                        .longName("target")
+                        .required(true)
+                        .type(String.class)
+                        .build())
+                .availabilityProvider(availabilityProvider())
+                .exitStatusExceptionMapper(exceptionMapper())
+                .execute(ctx -> {
+                    String usage = "Usage: `rule add --pattern \"regex\" --target <account-number> ` and then follow the prompts to create a new rule.";
+                    String match = getOption(ctx, 'p', "pattern", "<match> option is missing. \n" + usage);
+                    String target = getOption(ctx, 't', "target", "<target> option is missing. \n" + usage);
+
+                    ingestionRuleService.addRule(new RuleCreateDto(
+                            match,
+                            Long.valueOf(target)
+                    ));
                 });
     }
 
@@ -474,8 +519,12 @@ public class CommandsConfig {
        return value;
    }
 
-   private String getOption(CommandContext ctx, String optionName, String errorMessage) {
-       return validateAndGet(ctx.getOptionByLongName(optionName).value(), errorMessage);
+   private String getOption(CommandContext ctx, char shortName, String longName, String errorMessage) {
+        CommandOption option = ctx.getOptionByLongName(longName);
+        if (option == null) {
+            option = ctx.getOptionByShortName(shortName);
+        }
+        return validateAndGet(option != null ? option.value() : null, errorMessage);
    }
 
    private String getArgument(CommandContext ctx, int index, String errorMessage) {
@@ -485,5 +534,19 @@ public class CommandsConfig {
 
    private static String assetSymbol(Account account) {
        return account.getAsset() == null ? "—" : account.getAsset().getSymbol();
+   }
+
+
+   private ExitStatusExceptionMapper exceptionMapper() {
+        return exception -> {
+            if (exception instanceof IllegalArgumentException || exception instanceof IllegalStateException) {
+                return new ExitStatus(1, exception.getMessage());
+            }
+            return new ExitStatus(2, "An unexpected error occurred: " + exception.getMessage());
+        };
+   }
+
+   private AvailabilityProvider availabilityProvider() {
+        return Availability::available;
    }
 }

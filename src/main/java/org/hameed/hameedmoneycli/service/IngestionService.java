@@ -1,5 +1,6 @@
 package org.hameed.hameedmoneycli.service;
 
+import org.hameed.hameedmoneycli.model.dto.RuleCreateDto;
 import org.hameed.hameedmoneycli.model.entity.SourceSystem;
 import org.hameed.hameedmoneycli.model.entity.Transaction;
 import org.hameed.hameedmoneycli.repository.SourceSystemRepository;

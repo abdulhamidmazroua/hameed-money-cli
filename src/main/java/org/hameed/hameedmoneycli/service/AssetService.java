@@ -32,6 +32,11 @@ public class AssetService {
                 .orElseThrow(() -> new IllegalArgumentException("Asset with ID " + id + " not found"));
     }
 
+    public Asset getAssetBySymbol(String symbol) {
+        return assetRepository.findBySymbol(symbol)
+                .orElseThrow(() -> new IllegalArgumentException("Asset with symbol " + symbol + " not found"));
+    }
+
     public List<Asset> getAllAssets() {
         return assetRepository.findAll();
     }

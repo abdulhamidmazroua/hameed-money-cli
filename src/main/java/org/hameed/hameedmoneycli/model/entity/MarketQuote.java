@@ -2,20 +2,24 @@ package org.hameed.hameedmoneycli.model.entity;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 
 @Entity
+@EntityListeners(AuditingEntityListener.class)
 @Table(name = "market_quote", uniqueConstraints = {
         @UniqueConstraint(columnNames = {"base_asset_id", "quote_asset_id", "quote_date"})
 })
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class MarketQuote {
 
     @Id

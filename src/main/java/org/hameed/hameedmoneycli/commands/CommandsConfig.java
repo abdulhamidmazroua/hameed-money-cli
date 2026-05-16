@@ -35,6 +35,7 @@ public class CommandsConfig {
     private final TransactionService transactionService;
     private final IngestionService ingestionService;
     private final IngestionRuleService ingestionRuleService;
+    private final MarketQuoteService marketQuoteService;
 
     // Assets and Accounts
     @Bean
@@ -478,6 +479,48 @@ public class CommandsConfig {
                     ingestionRuleService.addRule(new RuleCreateDto(
                             match,
                             Long.valueOf(target)
+                    ));
+                });
+    }
+
+    @Bean
+    public Command setQuote() {
+        return Command.builder()
+                .name("quote set")
+                .description("Set the latest price for an asset")
+                .help("Set the latest price for an asset. Usage: `quote set --base <asset-code> --quote <asset-code> --price 100`")
+                .options(
+                        CommandOption.with()
+                                .shortName('b')
+                                .longName("base")
+                                .required(true)
+                                .type(String.class)
+                                .build(),
+                        CommandOption.with()
+                                .shortName('q')
+                                .longName("quote")
+                                .required(true)
+                                .type(String.class)
+                                .build(),
+                        CommandOption.with()
+                                .shortName('p')
+                                .longName("price")
+                                .required(true)
+                                .type(String.class)
+                                .build()
+                )
+                .availabilityProvider(availabilityProvider())
+                .exitStatusExceptionMapper(exceptionMapper())
+                .execute(ctx -> {
+                    String usage = "Usage: `quote set --base <asset-code> --quote <asset-code> --price 100`";
+                    String baseSymbol = getOption(ctx, 'b', "base", "<base> option is missing. \n" + usage);
+                    String quoteSymbol = getOption(ctx, 'q', "quote", "<quote> option is missing. \n" + usage);
+                    String price = getOption(ctx, 'p', "price", "<price> option is missing. \n" + usage);
+
+                    marketQuoteService.setMarketQuote(new MarketQuoteCreateDto(
+                            baseSymbol,
+                            quoteSymbol,
+                            new BigDecimal(price)
                     ));
                 });
     }

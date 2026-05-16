@@ -20,6 +20,10 @@ import org.springframework.shell.jline.tui.component.flow.SelectItem;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -488,7 +492,7 @@ public class CommandsConfig {
         return Command.builder()
                 .name("quote set")
                 .description("Set the latest price for an asset")
-                .help("Set the latest price for an asset. Usage: `quote set --base <asset-code> --quote <asset-code> --price 100`")
+                .help("Set the latest price for an asset. Usage: `quote set --base <asset-code> --quote <asset-code> --price 100 --date 2024-01-01`")
                 .options(
                         CommandOption.with()
                                 .shortName('b')
@@ -507,21 +511,60 @@ public class CommandsConfig {
                                 .longName("price")
                                 .required(true)
                                 .type(String.class)
+                                .build(),
+                        CommandOption.with()
+                                .shortName('d')
+                                .longName("date")
+                                .required(false)
+                                .type(String.class)
                                 .build()
                 )
                 .availabilityProvider(availabilityProvider())
                 .exitStatusExceptionMapper(exceptionMapper())
                 .execute(ctx -> {
-                    String usage = "Usage: `quote set --base <asset-code> --quote <asset-code> --price 100`";
+                    String usage = "Usage: `quote set --base <asset-code> --quote <asset-code> --price 100 --date 2024-01-01`";
                     String baseSymbol = getOption(ctx, 'b', "base", "<base> option is missing. \n" + usage);
                     String quoteSymbol = getOption(ctx, 'q', "quote", "<quote> option is missing. \n" + usage);
                     String price = getOption(ctx, 'p', "price", "<price> option is missing. \n" + usage);
-
-                    marketQuoteService.setMarketQuote(new MarketQuoteCreateDto(
+                    String date = ctx.getOptionByLongName("date") != null ? ctx.getOptionByLongName("date").value() : null;
+                    marketQuoteService.setMarketQuote(new MarketQuoteDto(
                             baseSymbol,
                             quoteSymbol,
-                            new BigDecimal(price)
+                            new BigDecimal(price),
+                            date
                     ));
+                });
+    }
+
+    @Bean
+    public Command getQuote() {
+        return Command.builder()
+                .name("quote get")
+                .description("Get the latest price for an asset")
+                .help("Get the latest price for an asset. Usage: `quote get --base <asset-code> --quote <asset-code>`")
+                .options(
+                        CommandOption.with()
+                                .shortName('b')
+                                .longName("base")
+                                .required(true)
+                                .type(String.class)
+                                .build(),
+                        CommandOption.with()
+                                .shortName('q')
+                                .longName("quote")
+                                .required(true)
+                                .type(String.class)
+                                .build()
+                )
+                .availabilityProvider(availabilityProvider())
+                .exitStatusExceptionMapper(exceptionMapper())
+                .execute(ctx -> {
+                    String usage = "Usage: `quote get --base <asset-code> --quote <asset-code>`";
+                    String baseSymbol = getOption(ctx, 'b', "base", "<base> option is missing. \n" + usage);
+                    String quoteSymbol = getOption(ctx, 'q', "quote", "<quote> option is missing. \n" + usage);
+
+                    List<MarketQuoteDto> marketQuotes = marketQuoteService.getMarketQuote(baseSymbol, quoteSymbol);
+                    marketQuotes.forEach(quote -> ctx.outputWriter().println("Price of " + quote.baseSymbol() + " in " + quote.quoteSymbol() + " is " + quote.price() + " (as of " + quote.marketQuoteDate() + ")"));
                 });
     }
 

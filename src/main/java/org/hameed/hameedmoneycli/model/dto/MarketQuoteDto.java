@@ -2,9 +2,10 @@ package org.hameed.hameedmoneycli.model.dto;
 
 import java.math.BigDecimal;
 
-public record MarketQuoteCreateDto(
+public record MarketQuoteDto(
         String baseSymbol,
         String quoteSymbol,
-        BigDecimal price
+        BigDecimal price,
+        String marketQuoteDate
 ) {
 }

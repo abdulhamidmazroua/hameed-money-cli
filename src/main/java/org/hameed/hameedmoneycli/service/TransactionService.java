@@ -10,6 +10,7 @@ import org.hameed.hameedmoneycli.model.entity.SourceSystem;
 import org.hameed.hameedmoneycli.model.entity.Transaction;
 import org.hameed.hameedmoneycli.repository.SourceSystemRepository;
 import org.hameed.hameedmoneycli.repository.TransactionRepository;
+import org.hameed.hameedmoneycli.util.DateUtil;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
@@ -57,7 +58,7 @@ public class TransactionService {
                 .toAccount(toAcc)
                 .fromAmount(transactionCreateDto.fromAmount())
                 .toAmount(transactionCreateDto.toAmount())
-                .transactionDate(Instant.parse(transactionCreateDto.transactionDateTime()))
+                .transactionDate(DateUtil.parseDateTimeStringToInstant(transactionCreateDto.transactionDateTime()))
                 .sourceSystem(sourceSystem)
                 .feeAmount(fee)
                 .isSystemAdjustment(false)

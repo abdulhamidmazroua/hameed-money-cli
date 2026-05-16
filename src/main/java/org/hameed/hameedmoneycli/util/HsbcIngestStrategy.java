@@ -50,7 +50,6 @@ import java.util.regex.PatternSyntaxException;
 public class HsbcIngestStrategy implements IngestionStrategy {
 
     private static final String SKIP_SENTINEL = "__SKIP__";
-    private static final ZoneId DEFAULT_ZONE = ZoneId.of("Africa/Cairo");
     private static final DateTimeFormatter HSBC_DATE = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH);
     private static final int MAX_DESCRIPTION_LENGTH = 500;
 
@@ -98,8 +97,7 @@ public class HsbcIngestStrategy implements IngestionStrategy {
                 String amountRaw = record.get(2);
 
                 try {
-                    LocalDate date = LocalDate.parse(dateRaw.trim(), HSBC_DATE);
-                    Instant when = date.atStartOfDay(DEFAULT_ZONE).toInstant();
+                    Instant when = DateUtil.parseDateStringToInstant(dateRaw.trim(), HSBC_DATE);
                     BigDecimal signed = IngestionSupport.parseSignedAmount(amountRaw);
                     BigDecimal magnitude = IngestionSupport.absAmount(signed);
 

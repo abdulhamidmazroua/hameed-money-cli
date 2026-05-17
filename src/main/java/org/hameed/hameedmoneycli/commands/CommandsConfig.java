@@ -1,10 +1,7 @@
 package org.hameed.hameedmoneycli.commands;
 
 import lombok.RequiredArgsConstructor;
-import org.hameed.hameedmoneycli.enums.AccountType;
-import org.hameed.hameedmoneycli.enums.AssetCategory;
-import org.hameed.hameedmoneycli.enums.SourceSystemCode;
-import org.hameed.hameedmoneycli.enums.TransactionType;
+import org.hameed.hameedmoneycli.enums.*;
 import org.hameed.hameedmoneycli.model.dto.*;
 import org.hameed.hameedmoneycli.model.entity.Account;
 import org.hameed.hameedmoneycli.model.entity.Asset;
@@ -42,6 +39,41 @@ public class CommandsConfig {
     private final ReportService reportService;
 
     // Assets and Accounts
+    @Bean
+    public Command fetchAssetData() {
+        return Command.builder()
+                .name("asset fetch")
+                .description("Fetch asset data")
+                .help("Fetch asset data. Usage: `asset fetch --category <asset-category> --exchange EGX`")
+                .options(CommandOption.with()
+                        .shortName('c')
+                        .longName("category")
+                        .type(String.class)
+                        .required(true)
+                        .build(),
+                        CommandOption.with()
+                                .shortName('e')
+                                .longName("exchange")
+                                .type(String.class)
+                                .required(false)
+                                .build())
+                .execute(ctx -> {
+                    String category = getOptionOrError(ctx, 'c', "category", "<category> option is missing");
+                    AssetCategory assetCategory = AssetCategory.valueOf(category);
+
+                    switch (assetCategory) {
+                        case AssetCategory.STOCK -> {
+                            String exchange = getOptionOrError(ctx, 'e', "exchange", "<exchange> option is missing");
+                            assetService.syncAssetData(StockExchange.valueOf(exchange));
+                        } default -> {
+                            throw new IllegalArgumentException("This category is not supported. Consider using STOCK");
+                        }
+                    }
+
+
+                });
+    }
+
     @Bean
     public Command registerAsset() {
         return Command.builder()

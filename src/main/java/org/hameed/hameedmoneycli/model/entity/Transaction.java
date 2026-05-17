@@ -13,6 +13,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Map;
 
 @Entity
 @EntityListeners(AuditingEntityListener.class)
@@ -66,7 +67,7 @@ public class Transaction {
 
     @Column(columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
-    private TransactionMetaData metadata;
+    private Map<String, String> metadata;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     @CreatedDate

@@ -12,7 +12,6 @@ import org.hameed.hameedmoneycli.model.entity.Account;
 import org.hameed.hameedmoneycli.model.entity.IngestionRule;
 import org.hameed.hameedmoneycli.model.entity.SourceSystem;
 import org.hameed.hameedmoneycli.model.entity.Transaction;
-import org.hameed.hameedmoneycli.model.entity.TransactionMetaData;
 import org.hameed.hameedmoneycli.repository.AccountRepository;
 import org.hameed.hameedmoneycli.repository.IngestionRuleRepository;
 import org.hameed.hameedmoneycli.repository.TransactionRepository;
@@ -29,11 +28,7 @@ import java.nio.file.Path;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Locale;
-import java.util.Optional;
+import java.util.*;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
@@ -264,7 +259,8 @@ public class HsbcIngestStrategy implements IngestionStrategy {
                 : TransactionType.BANK_TRANSFER;
     }
 
-    private TransactionMetaData metadataFor(String originalDescription, String amountRaw) {
+    private Map<String, String> metadataFor(String originalDescription, String amountRaw) {
+        Map<String, String> metadata = new HashMap<>();
         String upper = originalDescription.toUpperCase(Locale.ROOT);
         String medium = null;
         if (upper.contains("ATM")) {
@@ -272,16 +268,10 @@ public class HsbcIngestStrategy implements IngestionStrategy {
         } else if (upper.contains("SYSTEM GENERATED")) {
             medium = "INSTAPAY";
         }
-        return new TransactionMetaData(
-                null,
-                null,
-                null,
-                amountRaw,
-                medium,
-                null,
-                null,
-                originalDescription
-        );
+        metadata.put("amount", amountRaw);
+        metadata.put("medium", medium);
+        metadata.put("description", originalDescription);
+        return metadata;
     }
 
     private static String truncate(String description) {

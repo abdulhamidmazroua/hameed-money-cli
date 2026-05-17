@@ -1,9 +1,11 @@
 package org.hameed.hameedmoneycli.service;
 
 import lombok.RequiredArgsConstructor;
+import org.hameed.hameedmoneycli.enums.StockExchange;
 import org.hameed.hameedmoneycli.model.dto.MarketQuoteDto;
 import org.hameed.hameedmoneycli.model.entity.FinancialOracle;
 import org.hameed.hameedmoneycli.model.entity.MarketQuote;
+import org.hameed.hameedmoneycli.proxy.TwelveDataProxy;
 import org.hameed.hameedmoneycli.repository.MarketQuoteRepository;
 import org.hameed.hameedmoneycli.util.DateUtil;
 import org.springframework.stereotype.Service;
@@ -28,6 +30,7 @@ public class MarketQuoteService {
     private final MarketQuoteRepository marketQuoteRepository;
     private final AssetService assetService;
     private static final ZoneId DEFAULT_ZONE = ZoneId.of("Africa/Cairo");
+    private final TwelveDataProxy twelveDataProxy;
 
     public void setMarketQuote(MarketQuoteDto marketQuote) {
         MarketQuote entity = MarketQuote.builder()

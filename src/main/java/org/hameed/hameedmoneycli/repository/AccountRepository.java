@@ -2,6 +2,7 @@ package org.hameed.hameedmoneycli.repository;
 
 import org.hameed.hameedmoneycli.model.entity.Account;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -11,4 +12,7 @@ import java.util.Optional;
 public interface AccountRepository extends JpaRepository<Account, Long> {
 
     Optional<Account> findByNameIgnoreCase(String name);
+
+    @Query("select a from Account a where a.asset.id is not null")
+    List<Account> getLeafAccounts();
 }

@@ -2,17 +2,24 @@ package org.hameed.hameedmoneycli.service;
 
 import lombok.RequiredArgsConstructor;
 import org.hameed.hameedmoneycli.model.dto.MarketQuoteDto;
+import org.hameed.hameedmoneycli.model.entity.FinancialOracle;
 import org.hameed.hameedmoneycli.model.entity.MarketQuote;
 import org.hameed.hameedmoneycli.repository.MarketQuoteRepository;
 import org.hameed.hameedmoneycli.util.DateUtil;
 import org.springframework.stereotype.Service;
+import org.yaml.snakeyaml.error.Mark;
 
+import java.math.BigDecimal;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -43,6 +50,13 @@ public class MarketQuoteService {
                         DateUtil.getDateStringFromInstant(mq.getQuoteDate())
                 ))
                 .toList();
+    }
+
+    public FinancialOracle getFinancialOracle() {
+        FinancialOracle financialOracle = new FinancialOracle();
+        marketQuoteRepository.findAllLatest()
+                .forEach(financialOracle::addGraphNode);
+        return financialOracle;
     }
 
 }

@@ -19,7 +19,6 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.List;
 
@@ -58,7 +57,7 @@ public class TransactionService {
                 .toAccount(toAcc)
                 .fromAmount(transactionCreateDto.fromAmount())
                 .toAmount(transactionCreateDto.toAmount())
-                .transactionDate(DateUtil.parseDateTimeStringToInstant(transactionCreateDto.transactionDateTime()))
+                .transactionDate(DateUtil.parseDateStringToInstant(transactionCreateDto.transactionDate()))
                 .sourceSystem(sourceSystem)
                 .feeAmount(fee)
                 .isSystemAdjustment(false)

@@ -12,7 +12,7 @@ public record TransactionCreateDto(
         Long toAccountId,
         BigDecimal fromAmount,
         BigDecimal toAmount,
-        String transactionDateTime,
+        String transactionDate,
         SourceSystemCode sourceSystemCode,
         BigDecimal feeAmount
 ) {

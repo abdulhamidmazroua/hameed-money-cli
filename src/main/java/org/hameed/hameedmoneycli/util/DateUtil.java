@@ -9,7 +9,7 @@ public class DateUtil {
 
     public static final String DEFAULT_TIMEZONE = "Africa/Cairo";
     public static final String DEFAULT_DATE_FORMAT = "dd-MM-yyyy";
-    public static final String DEFAULT_DATETIME_FORMAT = "yyyy-MM-dd HH:mm:ss";
+    public static final String DEFAULT_DATETIME_FORMAT = "dd-MM-yyyy HH:mm:ss";
 
 
     // 1- convert string date to Instant

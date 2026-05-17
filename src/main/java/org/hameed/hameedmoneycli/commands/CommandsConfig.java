@@ -9,6 +9,7 @@ import org.hameed.hameedmoneycli.model.dto.*;
 import org.hameed.hameedmoneycli.model.entity.Account;
 import org.hameed.hameedmoneycli.model.entity.Asset;
 import org.hameed.hameedmoneycli.service.*;
+import org.hameed.hameedmoneycli.util.DateUtil;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.shell.core.command.*;
@@ -19,11 +20,9 @@ import org.springframework.shell.jline.tui.component.flow.ComponentFlow;
 import org.springframework.shell.jline.tui.component.flow.SelectItem;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.time.LocalDate;
-import java.time.OffsetDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -40,6 +39,7 @@ public class CommandsConfig {
     private final IngestionService ingestionService;
     private final IngestionRuleService ingestionRuleService;
     private final MarketQuoteService marketQuoteService;
+    private final ReportService reportService;
 
     // Assets and Accounts
     @Bean
@@ -49,23 +49,23 @@ public class CommandsConfig {
                 .description("Register a new asset")
                 .help("Register a new asset. Usage: `asset register --name \"Commercial International Bank\" --symbol COMI.CA`")
                 .options(CommandOption.with()
-                            .shortName('n')
-                            .longName("name")
-                            .required(true)
-                            .type(String.class)
-                            .build(),
+                                .shortName('n')
+                                .longName("name")
+                                .required(true)
+                                .type(String.class)
+                                .build(),
                         CommandOption.with()
-                            .shortName('s')
-                            .longName("symbol")
-                            .required(true)
-                            .type(String.class)
-                            .build())
+                                .shortName('s')
+                                .longName("symbol")
+                                .required(true)
+                                .type(String.class)
+                                .build())
                 .exitStatusExceptionMapper(exceptionMapper())
                 .availabilityProvider(availabilityProvider())
                 .execute(ctx -> {
                     String usage = "Usage: `asset register --name \"Commercial International Bank\" --symbol COMI.CA`";
-                    String assetName = getOption(ctx, 'n', "name", "<name> option is missing. \n" + usage);
-                    String symbol = getOption(ctx, 's', "symbol", "<name> option is missing. \n" + usage);
+                    String assetName = getOptionOrError(ctx, 'n', "name", "<name> option is missing. \n" + usage);
+                    String symbol = getOptionOrError(ctx, 's', "symbol", "<name> option is missing. \n" + usage);
 
                     ComponentFlow.ComponentFlowResult assetCategoryResult = componentFlowBuilder.clone().reset()
                             .withSingleItemSelector("assetCategory")
@@ -73,7 +73,7 @@ public class CommandsConfig {
                             .selectItems(List.of(AssetCategory.values()).stream()
                                     .map(category -> SelectItem.of(category.toString(), category.toString()))
                                     .toList(
-                            )).and().build().run();
+                                    )).and().build().run();
 
                     String assetCategory = assetCategoryResult.getContext().get("assetCategory", String.class);
                     assetService.createAsset(new AssetCreateDto(assetName, symbol, AssetCategory.valueOf(assetCategory), AssetCategory.valueOf(assetCategory).isTradable()));
@@ -100,41 +100,41 @@ public class CommandsConfig {
                 .exitStatusExceptionMapper(exceptionMapper())
                 .availabilityProvider(availabilityProvider())
                 .execute(ctx -> {
-                        String usage = "Usage: `account create --name \"Cash Account\" --parent-account-id 3 `";
-                        String accountName = getOption(ctx, 'n', "name", "<name> option is missing. \n" + usage);
-                        String parentAccountId = ctx.getOptionByLongName("parent-account-id").value();
+                    String usage = "Usage: `account create --name \"Cash Account\" --parent-account-id 3 `";
+                    String accountName = getOptionOrError(ctx, 'n', "name", "<name> option is missing. \n" + usage);
+                    String parentAccountId = getOptionOrDefault(ctx, 'p', "parent-account-id", null);
 
-                        // selecting the account type (master type) for the account
-                        ComponentFlow.ComponentFlowResult accountTypeResult = componentFlowBuilder.clone().reset()
-                                .withSingleItemSelector("accountType")
-                                .name("Account Type: ")
-                                .selectItems(List.of(AccountType.values()).stream()
-                                        .map(accountType -> SelectItem.of(accountType.toString(), accountType.toString()))
-                                        .toList())
-                                .and().build().run();
+                    // selecting the account type (master type) for the account
+                    ComponentFlow.ComponentFlowResult accountTypeResult = componentFlowBuilder.clone().reset()
+                            .withSingleItemSelector("accountType")
+                            .name("Account Type: ")
+                            .selectItems(List.of(AccountType.values()).stream()
+                                    .map(accountType -> SelectItem.of(accountType.toString(), accountType.toString()))
+                                    .toList())
+                            .and().build().run();
 
-                        List<SelectItem> assetChoices = new ArrayList<>();
-                        assetChoices.add(SelectItem.of("(Folder — organizational only, no asset / not for postings)", ""));
-                        assetChoices.addAll(assetService.getAllAssets().stream()
-                                .map(asset -> SelectItem.of(asset.getName() + " (" + asset.getSymbol() + ")", asset.getId().toString()))
-                                .toList());
+                    List<SelectItem> assetChoices = new ArrayList<>();
+                    assetChoices.add(SelectItem.of("(Folder — organizational only, no asset / not for postings)", ""));
+                    assetChoices.addAll(assetService.getAllAssets().stream()
+                            .map(asset -> SelectItem.of(asset.getName() + " (" + asset.getSymbol() + ")", asset.getId().toString()))
+                            .toList());
 
-                        ComponentFlow.ComponentFlowResult assetResult = componentFlowBuilder.clone().reset()
+                    ComponentFlow.ComponentFlowResult assetResult = componentFlowBuilder.clone().reset()
                             .withSingleItemSelector("assetId")
                             .name("Leaf: pick an asset. Parent folder: choose the first option.")
                             .selectItems(assetChoices)
                             .and().build().run();
 
-                        String accountType = accountTypeResult.getContext().get("accountType", String.class);
-                        String assetId = assetResult.getContext().get("assetId", String.class);
-                        Long assetIdLong = (assetId != null && !assetId.isBlank()) ? Long.valueOf(assetId) : null;
-                        accountService.createAccount(new AccountCreateDto(
-                                accountName,
-                                AccountType.valueOf(accountType),
-                                parentAccountId != null && !parentAccountId.isBlank() ? Long.valueOf(parentAccountId) : null,
-                                assetIdLong,
-                                AccountType.valueOf(accountType).isInternal() // TODO: ask user if this account is internal or not (maybe based on the account type or other factors)
-                        ));
+                    String accountType = accountTypeResult.getContext().get("accountType", String.class);
+                    String assetId = assetResult.getContext().get("assetId", String.class);
+                    Long assetIdLong = (assetId != null && !assetId.isBlank()) ? Long.valueOf(assetId) : null;
+                    accountService.createAccount(new AccountCreateDto(
+                            accountName,
+                            AccountType.valueOf(accountType),
+                            parentAccountId != null && !parentAccountId.isBlank() ? Long.valueOf(parentAccountId) : null,
+                            assetIdLong,
+                            AccountType.valueOf(accountType).isInternal() // TODO: ask user if this account is internal or not (maybe based on the account type or other factors)
+                    ));
                 });
     }
 
@@ -183,10 +183,9 @@ public class CommandsConfig {
         return Command.builder()
                 .name("transaction add")
                 .description("Add a new transaction")
-                .help("Add a new transaction. Usage: `tx add --from-amount 100 --to-amount 100 --fee-amount 2.2 --date 2024-01-01 --description \"Grocery shopping\" --from-account-id 1 --to-account-id 2` \n Note: you can also use `--amount` option instead of `--from-amount` and `--to-amount` if the amounts are the same for both sides of the transaction.")
+                .help("Add a new transaction. Usage: `transaction add --from-amount 100 --to-amount 100 --fee-amount 2.2 --date 2024-01-01 --description \"Grocery shopping\" --from-account-id 1 --to-account-id 2` \n Note: you can also use `--amount` option instead of `--from-amount` and `--to-amount` if the amounts are the same for both sides of the transaction.")
                 .availabilityProvider(availabilityProvider())
                 .exitStatusExceptionMapper(exceptionMapper())
-
                 .options(
                         CommandOption.with()
                                 .shortName('a')
@@ -209,7 +208,7 @@ public class CommandsConfig {
                         CommandOption.with()
                                 .shortName('d')
                                 .longName("date")
-                                .required(true)
+                                .required(false)
                                 .type(String.class)
                                 .build(),
                         CommandOption.with()
@@ -231,29 +230,29 @@ public class CommandsConfig {
                                 .type(String.class)
                                 .build(),
                         CommandOption.with()
-                            .shortName('e')
-                            .longName("fee-amount")
-                            .required(false)
-                            .type(String.class)
-                            .build())
+                                .shortName('e')
+                                .longName("fee-amount")
+                                .required(false)
+                                .type(String.class)
+                                .build())
                 .execute(ctx -> {
                     String usage = "Usage: `tx add --from-amount 100 --to-amount 100 --fee-amount 2.2 --date 2024-01-01 --description \"Grocery shopping\" --from-account-id 1 --to-account-id 2` \n Note: you can also use `--amount` option instead of `--from-amount` and `--to-amount` if the amounts are the same for both sides of the transaction.";
-                    String date = getOption(ctx, 'd', "date", "<date> option is missing. \n" + usage);
-                    String fromAccountId = getOption(ctx, 'F', "from-account-id", "<from-account-id> option is missing. \n" + usage);
-                    String toAccountId = getOption(ctx, 'T', "to-account-id", "<to-account-id> option is missing. \n" + usage);
-                    String description = ctx.getOptionByLongName("description").value();
+                    String date = getOptionOrError(ctx, 'd', "date", "<date> option is missing. \n" + usage);
+                    String fromAccountId = getOptionOrError(ctx, 'F', "from-account-id", "<from-account-id> option is missing. \n" + usage);
+                    String toAccountId = getOptionOrError(ctx, 'T', "to-account-id", "<to-account-id> option is missing. \n" + usage);
+                    String description = getOptionOrDefault(ctx, 'D', "description", null);
+                    String feeAmount = getOptionOrDefault(ctx, 'e', "fee-amount", "0");
 
-                    String amount = ctx.getOptionByLongName("amount").value();
+                    String amount = getOptionOrDefault(ctx, 'a', "amount", null);
                     String fromAmount;
                     String toAmount;
-                    String feeAmount = ctx.getOptionByLongName("fee-amount").value() != null && !ctx.getOptionByLongName("fee-amount").value().isBlank() ? ctx.getOptionByLongName("fee-amount").value() : "0";
 
                     if (amount != null && !amount.isBlank()) {
                         fromAmount = amount;
                         toAmount = amount;
                     } else {
-                        fromAmount = getOption(ctx, 'f', "from-amount", "<amount> or <from-amount> option is missing. \n" + usage);
-                        toAmount = getOption(ctx, 't', "to-amount", "<amount> or <to-amount> option is missing. \n" + usage);
+                        fromAmount = getOptionOrError(ctx, 'f', "from-amount", "<amount> or <from-amount> option is missing. \n" + usage);
+                        toAmount = getOptionOrError(ctx, 't', "to-amount", "<amount> or <to-amount> option is missing. \n" + usage);
                     }
 
                     ComponentFlow.ComponentFlowResult transactionTypeResult = componentFlowBuilder.clone().reset()
@@ -321,40 +320,40 @@ public class CommandsConfig {
                                 .build()
                 )
                 .execute(ctx -> {
-                    String transactionType = ctx.getOptionByLongName("transaction-type") != null ? ctx.getOptionByLongName("transaction-type").value() : null;
-                    String fromAccountId = ctx.getOptionByLongName("from-account-id") != null ? ctx.getOptionByLongName("from-account-id").value() : null;
-                    String toAccountId = ctx.getOptionByLongName("to-account-id") != null ? ctx.getOptionByLongName("to-account-id").value() : null;
-                    String startDate = ctx.getOptionByLongName("start-date") != null ? ctx.getOptionByLongName("start-date").value() : null;
-                    String endDate = ctx.getOptionByLongName("end-date") != null ? ctx.getOptionByLongName("end-date").value() : null;
+                            String transactionType = getOptionOrDefault(ctx, 'T', "transaction-type", null);
+                            String fromAccountId = getOptionOrDefault(ctx, 'f', "from-account-id", null);
+                            String toAccountId = getOptionOrDefault(ctx, 't', "to-account-id", null);
+                            String startDate = getOptionOrDefault(ctx, 's', "start-date", null);
+                            String endDate = getOptionOrDefault(ctx, 'e', "end-date", null);
 
-                    TransactionFilter transactionFilter = new TransactionFilter(
-                            transactionType,
-                            fromAccountId != null && !fromAccountId.isBlank() ? Long.valueOf(fromAccountId) : null,
-                            toAccountId != null && !toAccountId.isBlank() ? Long.valueOf(toAccountId) : null,
-                            startDate,
-                            endDate
-                    );
+                            TransactionFilter transactionFilter = new TransactionFilter(
+                                    transactionType,
+                                    fromAccountId != null && !fromAccountId.isBlank() ? Long.valueOf(fromAccountId) : null,
+                                    toAccountId != null && !toAccountId.isBlank() ? Long.valueOf(toAccountId) : null,
+                                    startDate,
+                                    endDate
+                            );
 
-                ctx.outputWriter().printf("%-12s | %-50s | %-18s | %-18s | %-20s | %-12s%n", "Type", "From Account -> To Account", "From Amount", "To Amount", "Date", "Fee");
-                    transactionService.getTransactions(transactionFilter)
-                          .stream()
-                          .forEach(
-                                  transaction -> {
-                                      String fromAccountName = transaction.getFromAccount().getName() + " (ID: " + transaction.getFromAccount().getId() + ")";
-                                      String toAccountName = transaction.getToAccount().getName() + " (ID: " + transaction.getToAccount().getId() + ")";
-                                      String accountPair = fromAccountName + " -> " + toAccountName;
-                                      ctx.outputWriter().printf("%-12s | %-50s | %-18s | %-18s | %-20s | %-12s%n",
-                                              transaction.getType(),
-                                              accountPair.length() > 50 ? accountPair.substring(0, 47) + "..." : accountPair,
-                                              transaction.getFromAmount() + " " + assetSymbol(transaction.getFromAccount()),
-                                              transaction.getToAmount() + " " + assetSymbol(transaction.getToAccount()),
-                                              transaction.getTransactionDate(),
-                                              transaction.getFeeAmount() + " " + assetSymbol(transaction.getFromAccount())
-                                      );
-                                  }
-                              );
-                            }
-                        );
+                            ctx.outputWriter().printf("%-12s | %-50s | %-18s | %-18s | %-20s | %-12s%n", "Type", "From Account -> To Account", "From Amount", "To Amount", "Date", "Fee");
+                            transactionService.getTransactions(transactionFilter)
+                                    .stream()
+                                    .forEach(
+                                            transaction -> {
+                                                String fromAccountName = transaction.getFromAccount().getName() + " (ID: " + transaction.getFromAccount().getId() + ")";
+                                                String toAccountName = transaction.getToAccount().getName() + " (ID: " + transaction.getToAccount().getId() + ")";
+                                                String accountPair = fromAccountName + " -> " + toAccountName;
+                                                ctx.outputWriter().printf("%-12s | %-50s | %-18s | %-18s | %-20s | %-12s%n",
+                                                        transaction.getType(),
+                                                        accountPair.length() > 50 ? accountPair.substring(0, 47) + "..." : accountPair,
+                                                        transaction.getFromAmount() + " " + assetSymbol(transaction.getFromAccount()),
+                                                        transaction.getToAmount() + " " + assetSymbol(transaction.getToAccount()),
+                                                        transaction.getTransactionDate(),
+                                                        transaction.getFeeAmount() + " " + assetSymbol(transaction.getFromAccount())
+                                                );
+                                            }
+                                    );
+                        }
+                );
     }
 
     @Bean
@@ -399,11 +398,11 @@ public class CommandsConfig {
                                 .build()
                 )
                 .execute(ctx -> {
-                    String transactionType = ctx.getOptionByLongName("transaction-type") != null ? ctx.getOptionByLongName("transaction-type").value() : null;
-                    String fromAccountId = ctx.getOptionByLongName("from-account-id") != null ? ctx.getOptionByLongName("from-account-id").value() : null;
-                    String toAccountId = ctx.getOptionByLongName("to-account-id") != null ? ctx.getOptionByLongName("to-account-id").value() : null;
-                    String startDate = ctx.getOptionByLongName("start-date") != null ? ctx.getOptionByLongName("start-date").value() : null;
-                    String endDate = ctx.getOptionByLongName("end-date") != null ? ctx.getOptionByLongName("end-date").value() : null;
+                    String transactionType = getOptionOrDefault(ctx, 'T', "transaction-type", null);
+                    String fromAccountId = getOptionOrDefault(ctx, 'f', "from-account-id", null);
+                    String toAccountId = getOptionOrDefault(ctx, 't', "to-account-id", null);
+                    String startDate = getOptionOrDefault(ctx, 's', "start-date", null);
+                    String endDate = getOptionOrDefault(ctx, 'e', "end-date", null);
 
                     TransactionFilter transactionFilter = new TransactionFilter(
                             transactionType,
@@ -445,8 +444,8 @@ public class CommandsConfig {
                                 .build()
                 )
                 .execute(ctx -> {
-                    String filePath = getOption(ctx, 'f', "file-path", "<file-path> option is missing. Usage: `ingest --source HSBC_APP --file-path /path/to/transactions.csv`");
-                    String source = getOption(ctx, 's', "source", "<source> option is missing. Usage : `ingest --source HSBC_APP --file-path /path/to/transactions.csv`");
+                    String filePath = getOptionOrError(ctx, 'f', "file-path", "<file-path> option is missing. Usage: `ingest --source HSBC_APP --file-path /path/to/transactions.csv`");
+                    String source = getOptionOrError(ctx, 's', "source", "<source> option is missing. Usage : `ingest --source HSBC_APP --file-path /path/to/transactions.csv`");
                     try {
                         ingestionService.ingestTransactions(source, filePath, ctx);
                     } catch (IOException e) {
@@ -462,23 +461,23 @@ public class CommandsConfig {
                 .description("Add a new ingestion rule")
                 .help("Add a new ingestion rule. Usage: `rule add --pattern \"regex\" --target <account-number> ` and then follow the prompts to create a new rule.")
                 .options(CommandOption.with()
-                        .shortName('p')
-                        .longName("pattern")
-                        .required(true)
-                        .type(String.class)
-                        .build(),
-                    CommandOption.with()
-                        .shortName('t')
-                        .longName("target")
-                        .required(true)
-                        .type(String.class)
-                        .build())
+                                .shortName('p')
+                                .longName("pattern")
+                                .required(true)
+                                .type(String.class)
+                                .build(),
+                        CommandOption.with()
+                                .shortName('t')
+                                .longName("target")
+                                .required(true)
+                                .type(String.class)
+                                .build())
                 .availabilityProvider(availabilityProvider())
                 .exitStatusExceptionMapper(exceptionMapper())
                 .execute(ctx -> {
                     String usage = "Usage: `rule add --pattern \"regex\" --target <account-number> ` and then follow the prompts to create a new rule.";
-                    String match = getOption(ctx, 'p', "pattern", "<match> option is missing. \n" + usage);
-                    String target = getOption(ctx, 't', "target", "<target> option is missing. \n" + usage);
+                    String match = getOptionOrError(ctx, 'p', "pattern", "<match> option is missing. \n" + usage);
+                    String target = getOptionOrError(ctx, 't', "target", "<target> option is missing. \n" + usage);
 
                     ingestionRuleService.addRule(new RuleCreateDto(
                             match,
@@ -523,10 +522,10 @@ public class CommandsConfig {
                 .exitStatusExceptionMapper(exceptionMapper())
                 .execute(ctx -> {
                     String usage = "Usage: `quote set --base <asset-code> --quote <asset-code> --price 100 --date 2024-01-01`";
-                    String baseSymbol = getOption(ctx, 'b', "base", "<base> option is missing. \n" + usage);
-                    String quoteSymbol = getOption(ctx, 'q', "quote", "<quote> option is missing. \n" + usage);
-                    String price = getOption(ctx, 'p', "price", "<price> option is missing. \n" + usage);
-                    String date = ctx.getOptionByLongName("date") != null ? ctx.getOptionByLongName("date").value() : null;
+                    String baseSymbol = getOptionOrError(ctx, 'b', "base", "<base> option is missing. \n" + usage);
+                    String quoteSymbol = getOptionOrError(ctx, 'q', "quote", "<quote> option is missing. \n" + usage);
+                    String price = getOptionOrError(ctx, 'p', "price", "<price> option is missing. \n" + usage);
+                    String date = getOptionOrDefault(ctx, 'd', "date", null);
                     marketQuoteService.setMarketQuote(new MarketQuoteDto(
                             baseSymbol,
                             quoteSymbol,
@@ -560,13 +559,71 @@ public class CommandsConfig {
                 .exitStatusExceptionMapper(exceptionMapper())
                 .execute(ctx -> {
                     String usage = "Usage: `quote get --base <asset-code> --quote <asset-code>`";
-                    String baseSymbol = getOption(ctx, 'b', "base", "<base> option is missing. \n" + usage);
-                    String quoteSymbol = getOption(ctx, 'q', "quote", "<quote> option is missing. \n" + usage);
+                    String baseSymbol = getOptionOrError(ctx, 'b', "base", "<base> option is missing. \n" + usage);
+                    String quoteSymbol = getOptionOrError(ctx, 'q', "quote", "<quote> option is missing. \n" + usage);
 
                     List<MarketQuoteDto> marketQuotes = marketQuoteService.getMarketQuote(baseSymbol, quoteSymbol);
                     marketQuotes.forEach(quote -> ctx.outputWriter().println("Price of " + quote.baseSymbol() + " in " + quote.quoteSymbol() + " is " + quote.price() + " (as of " + quote.marketQuoteDate() + ")"));
                 });
     }
+
+    @Bean
+    public Command report() {
+        return Command.builder()
+                .name("report nw")
+                .description("Generate balance sheet net worth report valued in a specific currency")
+                .help("Generate a financial report. Usage: `report nw --currency <currency>` and then follow the prompts to generate a report.")
+                .options(CommandOption.with()
+                        .shortName('c')
+                        .longName("currency")
+                        .required(true)
+                        .type(String.class)
+                        .defaultValue("EGP")
+                        .build()
+                )
+                .availabilityProvider(availabilityProvider())
+                .exitStatusExceptionMapper(exceptionMapper())
+                .execute(ctx -> {
+                    String usage = "Usage: `report nw --currency <currency>` and then follow the prompts to generate a report.";
+                    String currency = getOptionOrError(ctx, 'c', "currency", "<currency> option is missing. \n" + usage);
+
+                    NetworthReport report = reportService.generateNetworthReport(currency);
+                    printReportInTerminal(report);
+                });
+    }
+
+
+    public void printReportInTerminal(Report report) {
+        Field[] fileds = report.getClass().getDeclaredFields();
+        for (Field field : fileds) {
+            field.setAccessible(true);
+            try {
+                Object value = field.get(report);
+                System.out.println(field.getName() + ": " + value);
+            } catch (IllegalAccessException e) {
+                System.out.println(field.getName() + ": " + "Unable to access");
+            }
+        }
+
+    }
+
+    private String formatCamelCaseToTitle(String camelCase) {
+        // also capitalize the first letter
+        StringBuilder title = new StringBuilder();
+        char[] chars = camelCase.toCharArray();
+        for (int i = 0; i < chars.length; i++) {
+            char c = chars[i];
+            if (i == 0) {
+                title.append(Character.toUpperCase(c));
+            } else if (Character.isUpperCase(c)) {
+                title.append(' ').append(c);
+            } else {
+                title.append(c);
+            }
+        }
+        return title.toString();
+    }
+
 
     private void printAccountTree(List<Account> accounts, Account parent, int level) {
         String indent = "  ".repeat(level);
@@ -596,43 +653,43 @@ public class CommandsConfig {
                 });
     }
 
-
-
-   private String validateAndGet(String value, String errorMessage) {
-       if (value == null || value.isBlank()) {
-           throw new IllegalArgumentException(errorMessage);
-       }
-       return value;
-   }
-
-   private String getOption(CommandContext ctx, char shortName, String longName, String errorMessage) {
+    private CommandOption getOption(CommandContext ctx, char shortName, String longName) {
         CommandOption option = ctx.getOptionByLongName(longName);
-        if (option == null) {
-            option = ctx.getOptionByShortName(shortName);
+        return option != null ? option : ctx.getOptionByShortName(shortName);
+    }
+
+    private String getOptionOrDefault(CommandContext ctx, char shortName, String longName, String defaultVal) {
+        CommandOption option = getOption(ctx, shortName, longName);
+        return isOptionValid(option) ? option.value() : defaultVal;
+    }
+
+    private String getOptionOrError(CommandContext ctx, char shortName, String longName, String errorMessage) {
+        CommandOption option = getOption(ctx, shortName, longName);
+        if (isOptionValid(option)) {
+            return option.value();
         }
-        return validateAndGet(option != null ? option.value() : null, errorMessage);
-   }
+        throw new IllegalArgumentException(errorMessage);
+    }
 
-   private String getArgument(CommandContext ctx, int index, String errorMessage) {
-       CommandArgument arg = ctx.getArgumentByIndex(index);
-       return validateAndGet(arg != null ? arg.value() : null, errorMessage);
-   }
+    private boolean isOptionValid(CommandOption option) {
+        return option != null && option.value() != null && !option.value().isBlank();
+    }
 
-   private static String assetSymbol(Account account) {
-       return account.getAsset() == null ? "—" : account.getAsset().getSymbol();
-   }
+    private static String assetSymbol(Account account) {
+        return account.getAsset() == null ? "—" : account.getAsset().getSymbol();
+    }
 
 
-   private ExitStatusExceptionMapper exceptionMapper() {
+    private ExitStatusExceptionMapper exceptionMapper() {
         return exception -> {
             if (exception instanceof IllegalArgumentException || exception instanceof IllegalStateException) {
                 return new ExitStatus(1, exception.getMessage());
             }
             return new ExitStatus(2, "An unexpected error occurred: " + exception.getMessage());
         };
-   }
+    }
 
-   private AvailabilityProvider availabilityProvider() {
+    private AvailabilityProvider availabilityProvider() {
         return Availability::available;
-   }
+    }
 }

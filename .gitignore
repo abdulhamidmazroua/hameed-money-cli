@@ -35,5 +35,6 @@ build/
 ## Customer ##
 *.log
 *.DS_Store
-Wealth Reporting Tool (HMC)/
 *.env
+/hmc-docs
+

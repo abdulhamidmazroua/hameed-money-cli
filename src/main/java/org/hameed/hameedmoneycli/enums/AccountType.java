@@ -16,4 +16,13 @@ public enum AccountType {
     public boolean isIncomeOrExpense() {
         return this == INCOME || this == EXPENSE;
     }
+
+    public static AccountType fromString(String type) {
+        for (AccountType accountType : AccountType.values()) {
+            if (accountType.name().equalsIgnoreCase(type)) {
+                return accountType;
+            }
+        }
+        throw new IllegalArgumentException("No enum constant for type: " + type);
+    }
 }

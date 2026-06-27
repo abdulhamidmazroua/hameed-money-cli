@@ -16,7 +16,7 @@ public class TransactionSpecification {
             if (transactionType == null || transactionType.isBlank()) {
                 return null;
             }
-            return cb.equal(root.get("type"), TransactionType.valueOf(transactionType.trim()));
+            return cb.equal(root.get("type"), TransactionType.fromString(transactionType.trim()));
         };
     }
 

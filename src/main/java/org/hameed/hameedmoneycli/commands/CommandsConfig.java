@@ -6,7 +6,6 @@ import org.hameed.hameedmoneycli.model.dto.*;
 import org.hameed.hameedmoneycli.model.entity.Account;
 import org.hameed.hameedmoneycli.model.entity.Asset;
 import org.hameed.hameedmoneycli.service.*;
-import org.hameed.hameedmoneycli.util.DateUtil;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.shell.core.command.*;
@@ -19,7 +18,6 @@ import org.springframework.shell.jline.tui.component.flow.SelectItem;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -39,6 +37,22 @@ public class CommandsConfig {
     private final ReportService reportService;
 
     // Assets and Accounts
+
+    @Bean
+    public Command getCategories() {
+        return Command.builder()
+                .name("cat-list")
+                .description("List all asset categories")
+                .help("List all asset categories. Usage: `cat-list`")
+                .availabilityProvider(availabilityProvider())
+                .exitStatusExceptionMapper(exceptionMapper())
+                .execute(ctx -> {
+                    for (AssetCategory category : AssetCategory.values()) {
+                        ctx.outputWriter().println(category.getCategory());
+                    }
+                });
+    }
+
     @Bean
     public Command fetchAssetData() {
         return Command.builder()
@@ -59,12 +73,12 @@ public class CommandsConfig {
                                 .build())
                 .execute(ctx -> {
                     String category = getOptionOrError(ctx, 'c', "category", "<category> option is missing");
-                    AssetCategory assetCategory = AssetCategory.valueOf(category);
+                    AssetCategory assetCategory = AssetCategory.fromString(category);
 
                     switch (assetCategory) {
                         case AssetCategory.STOCK -> {
                             String exchange = getOptionOrError(ctx, 'e', "exchange", "<exchange> option is missing");
-                            assetService.syncAssetData(StockExchange.valueOf(exchange));
+                            assetService.syncAssetData(StockExchange.fromString(exchange));
                         } default -> {
                             throw new IllegalArgumentException("This category is not supported. Consider using STOCK");
                         }
@@ -108,7 +122,7 @@ public class CommandsConfig {
                                     )).and().build().run();
 
                     String assetCategory = assetCategoryResult.getContext().get("assetCategory", String.class);
-                    assetService.createAsset(new AssetCreateDto(assetName, symbol, AssetCategory.valueOf(assetCategory), AssetCategory.valueOf(assetCategory).isTradable()));
+                    assetService.createAsset(new AssetCreateDto(assetName, symbol, AssetCategory.fromString(assetCategory), AssetCategory.fromString(assetCategory).isTradable()));
                 });
     }
 
@@ -162,10 +176,10 @@ public class CommandsConfig {
                     Long assetIdLong = (assetId != null && !assetId.isBlank()) ? Long.valueOf(assetId) : null;
                     accountService.createAccount(new AccountCreateDto(
                             accountName,
-                            AccountType.valueOf(accountType),
+                            AccountType.fromString(accountType),
                             parentAccountId != null && !parentAccountId.isBlank() ? Long.valueOf(parentAccountId) : null,
                             assetIdLong,
-                            AccountType.valueOf(accountType).isInternal() // TODO: ask user if this account is internal or not (maybe based on the account type or other factors)
+                            AccountType.fromString(accountType).isInternal() // TODO: ask user if this account is internal or not (maybe based on the account type or other factors)
                     ));
                 });
     }
@@ -199,7 +213,7 @@ public class CommandsConfig {
         return Command.builder()
                 .name("asset list")
                 .description("List all assets")
-                .help("List all assets. Usage: `asset ls`")
+                .help("List all assets. Usage: `asset list`")
                 .availabilityProvider(availabilityProvider())
                 .exitStatusExceptionMapper(exceptionMapper())
                 .execute(ctx -> {
@@ -268,7 +282,7 @@ public class CommandsConfig {
                                 .type(String.class)
                                 .build())
                 .execute(ctx -> {
-                    String usage = "Usage: `tx add --from-amount 100 --to-amount 100 --fee-amount 2.2 --date 2024-01-01 --description \"Grocery shopping\" --from-account-id 1 --to-account-id 2` \n Note: you can also use `--amount` option instead of `--from-amount` and `--to-amount` if the amounts are the same for both sides of the transaction.";
+                    String usage = "Usage: `transaction add --from-amount 100 --to-amount 100 --fee-amount 2.2 --date 2024-01-01 --description \"Grocery shopping\" --from-account-id 1 --to-account-id 2` \n Note: you can also use `--amount` option instead of `--from-amount` and `--to-amount` if the amounts are the same for both sides of the transaction.";
                     String date = getOptionOrError(ctx, 'd', "date", "<date> option is missing. \n" + usage);
                     String fromAccountId = getOptionOrError(ctx, 'F', "from-account-id", "<from-account-id> option is missing. \n" + usage);
                     String toAccountId = getOptionOrError(ctx, 'T', "to-account-id", "<to-account-id> option is missing. \n" + usage);
@@ -296,7 +310,7 @@ public class CommandsConfig {
 
                     TransactionCreateDto transactionCreateDto = new TransactionCreateDto(
                             description != null ? description : "",
-                            TransactionType.valueOf(transactionTypeResult.getContext().get("transactionType", String.class)),
+                            TransactionType.fromString(transactionTypeResult.getContext().get("transactionType", String.class)),
                             Long.valueOf(fromAccountId),
                             Long.valueOf(toAccountId),
                             new BigDecimal(fromAmount),
@@ -315,7 +329,7 @@ public class CommandsConfig {
         return Command.builder()
                 .name("transaction list")
                 .description("List all transactions")
-                .help("List all transactions. Usage: `tx ls --transaction-type CARD_PURCHASE --from-account-id 1 --to-account-id 2 --start-date 2024-01-01 --end-date 2024-12-31` \n Note: all options are optional, you can filter transactions by from account, to account, start date, end date, and transaction type.")
+                .help("List all transactions. Usage: `transaction list --transaction-type CARD_PURCHASE --from-account-id 1 --to-account-id 2 --start-date 2024-01-01 --end-date 2024-12-31` \n Note: all options are optional, you can filter transactions by from account, to account, start date, end date, and transaction type.")
                 .availabilityProvider(availabilityProvider())
                 .exitStatusExceptionMapper(exceptionMapper())
 

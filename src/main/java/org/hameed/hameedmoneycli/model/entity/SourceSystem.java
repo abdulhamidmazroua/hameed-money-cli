@@ -29,7 +29,7 @@ public class SourceSystem {
     @Column(name = "code", nullable = false, length = 20, unique = true)
     private String code;
 
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
+    @OneToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "anchored_account_id", nullable = false)
     private Account anchoredAccount;
 

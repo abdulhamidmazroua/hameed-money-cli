@@ -18,6 +18,7 @@ import org.springframework.shell.jline.tui.component.flow.SelectItem;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.file.Path;
 import java.text.DateFormat;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -41,6 +42,7 @@ public class CommandsConfig {
     private final ReportService reportService;
     private final AuditService auditService;
     private final SystemAdjustmentService systemAdjustmentService;
+    private final BackupService backupService;
 
     // Assets and Accounts
 
@@ -1036,6 +1038,35 @@ public class CommandsConfig {
                 });
     }
 
+    @Bean
+    public Command dbBackup() {
+        return Command.builder()
+                .name("hmc db backup")
+                .description("Backup the database with pg_dump")
+                .help("Backup the database. Usage: `hmc db backup` or `hmc db backup --output ~/hmc/backups`")
+                .options(
+                        CommandOption.with()
+                                .longName("output")
+                                .shortName('o')
+                                .required(false)
+                                .type(String.class)
+                                .defaultValue("~/hmc/backups")
+                                .build()
+                )
+                .availabilityProvider(availabilityProvider())
+                .exitStatusExceptionMapper(exceptionMapper())
+                .execute(ctx -> {
+                    try {
+                        String outputDir = getOptionOrDefault(ctx, 'o', "output", "~/hmc/backups");
+                        outputDir = outputDir.replaceFirst("^~", System.getProperty("user.home"));
+
+                        Path backupFile = backupService.backup(outputDir);
+                        ctx.outputWriter().println("Backup saved: " + backupFile.toAbsolutePath());
+                    } catch (Exception e) {
+                        throw new RuntimeException("Backup failed: " + e.getMessage(), e);
+                    }
+                });
+    }
 
     private void printAccountTree(List<Account> accounts, Account parent, int level) {
         String indent = "  ".repeat(level);

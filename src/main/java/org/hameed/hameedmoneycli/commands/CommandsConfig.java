@@ -97,7 +97,7 @@ public class CommandsConfig {
         return Command.builder()
                 .name("asset register")
                 .description("Register a new asset")
-                .help("Register a new asset. Usage: `asset register --name \"Commercial International Bank\" --symbol COMI.CA`")
+                .help("Register a new asset. Usage: `asset register --name \"Commercial International Bank\" --symbol COMI.CA` \nNon-interactive: `asset register --name \"Gold\" --symbol XAU --category commodity`")
                 .options(CommandOption.with()
                                 .shortName('n')
                                 .longName("name")
@@ -109,6 +109,12 @@ public class CommandsConfig {
                                 .longName("symbol")
                                 .required(true)
                                 .type(String.class)
+                                .build(),
+                        CommandOption.with()
+                                .shortName('c')
+                                .longName("category")
+                                .required(false)
+                                .type(String.class)
                                 .build())
                 .exitStatusExceptionMapper(exceptionMapper())
                 .availabilityProvider(availabilityProvider())
@@ -116,16 +122,20 @@ public class CommandsConfig {
                     String usage = "Usage: `asset register --name \"Commercial International Bank\" --symbol COMI.CA`";
                     String assetName = getOptionOrError(ctx, 'n', "name", "<name> option is missing. \n" + usage);
                     String symbol = getOptionOrError(ctx, 's', "symbol", "<name> option is missing. \n" + usage);
+                    String categoryArg = getOptionOrDefault(ctx, 'c', "category", null);
 
-                    ComponentFlow.ComponentFlowResult assetCategoryResult = componentFlowBuilder.clone().reset()
-                            .withSingleItemSelector("assetCategory")
-                            .name("Asset Category: ")
-                            .selectItems(List.of(AssetCategory.values()).stream()
-                                    .map(category -> SelectItem.of(category.getCategory(), category.getCategory()))
-                                    .toList(
-                                    )).and().build().run();
-
-                    String assetCategory = assetCategoryResult.getContext().get("assetCategory", String.class);
+                    String assetCategory;
+                    if (categoryArg != null) {
+                        assetCategory = categoryArg;
+                    } else {
+                        ComponentFlow.ComponentFlowResult assetCategoryResult = componentFlowBuilder.clone().reset()
+                                .withSingleItemSelector("assetCategory")
+                                .name("Asset Category: ")
+                                .selectItems(List.of(AssetCategory.values()).stream()
+                                        .map(cat -> SelectItem.of(cat.getCategory(), cat.getCategory()))
+                                        .toList()).and().build().run();
+                        assetCategory = assetCategoryResult.getContext().get("assetCategory", String.class);
+                    }
                     assetService.createAsset(new AssetCreateDto(assetName, symbol, AssetCategory.fromString(assetCategory), AssetCategory.fromString(assetCategory).isTradable()));
                 });
     }
@@ -135,7 +145,7 @@ public class CommandsConfig {
         return Command.builder()
                 .name("account create")
                 .description("Create a new account")
-                .help("Create a new account. Usage: `account create --name \"Cash Account\" --parent-account-id 3 `")
+                .help("Create a new account. Usage: `account create --name \"Cash Account\" --parent-account-id 3` or `--parent-account-name \"Cash\"`")
                 .options(CommandOption.with()
                                 .shortName('n')
                                 .longName("name")
@@ -147,13 +157,24 @@ public class CommandsConfig {
                                 .longName("parent-account-id")
                                 .required(false)
                                 .type(String.class)
+                                .build(),
+                        CommandOption.with()
+                                .shortName('P')
+                                .longName("parent-account-name")
+                                .required(false)
+                                .type(String.class)
                                 .build())
                 .exitStatusExceptionMapper(exceptionMapper())
                 .availabilityProvider(availabilityProvider())
                 .execute(ctx -> {
-                    String usage = "Usage: `account create --name \"Cash Account\" --parent-account-id 3 `";
+                    String usage = "Usage: `account create --name \"Cash Account\" --parent-account-id 3`";
                     String accountName = getOptionOrError(ctx, 'n', "name", "<name> option is missing. \n" + usage);
                     String parentAccountId = getOptionOrDefault(ctx, 'p', "parent-account-id", null);
+                    String parentAccountName = getOptionOrDefault(ctx, 'P', "parent-account-name", null);
+
+                    if (parentAccountId == null && parentAccountName != null) {
+                        parentAccountId = accountService.getAccountByName(parentAccountName).getId().toString();
+                    }
 
                     // selecting the account type (master type) for the account
                     ComponentFlow.ComponentFlowResult accountTypeResult = componentFlowBuilder.clone().reset()
@@ -186,6 +207,77 @@ public class CommandsConfig {
                             assetIdLong,
                             AccountType.fromString(accountType).isInternal() // TODO: ask user if this account is internal or not (maybe based on the account type or other factors)
                     ));
+                });
+    }
+
+    @Bean
+    public Command initAccount() {
+        return Command.builder()
+                .name("account init")
+                .description("Create an account and post its opening balance in one shot")
+                .help("Create an account and post its opening balance. Usage: `account init --name \"XYZ Fund\" --asset XYZ --balance 1000 --parent-account-id 5` \nAlso accepts --category (default cash). If the asset does not exist, it is registered automatically.")
+                .options(
+                        CommandOption.with()
+                                .shortName('n')
+                                .longName("name")
+                                .required(true)
+                                .type(String.class)
+                                .build(),
+                        CommandOption.with()
+                                .shortName('p')
+                                .longName("parent-account-id")
+                                .required(false)
+                                .type(String.class)
+                                .build(),
+                        CommandOption.with()
+                                .shortName('a')
+                                .longName("asset")
+                                .required(true)
+                                .type(String.class)
+                                .build(),
+                        CommandOption.with()
+                                .shortName('c')
+                                .longName("category")
+                                .required(false)
+                                .type(String.class)
+                                .build(),
+                        CommandOption.with()
+                                .shortName('b')
+                                .longName("balance")
+                                .required(true)
+                                .type(String.class)
+                                .build())
+                .availabilityProvider(availabilityProvider())
+                .exitStatusExceptionMapper(exceptionMapper())
+                .execute(ctx -> {
+                    String usage = "Usage: `account init --name \"XYZ Fund\" --asset XYZ --balance 1000`";
+                    String accountName = getOptionOrError(ctx, 'n', "name", "<name> option is missing. \n" + usage);
+                    String parentId = getOptionOrDefault(ctx, 'p', "parent-account-id", null);
+                    String assetSymbol = getOptionOrError(ctx, 'a', "asset", "<asset> option is missing. \n" + usage);
+                    String categoryArg = getOptionOrDefault(ctx, 'c', "category", "cash");
+                    String balanceStr = getOptionOrError(ctx, 'b', "balance", "<balance> option is missing. \n" + usage);
+
+                    AssetCategory category = AssetCategory.fromString(categoryArg);
+                    Asset asset;
+                    try {
+                        asset = assetService.getAssetBySymbolAndCategory(assetSymbol, category);
+                    } catch (IllegalArgumentException e) {
+                        assetService.createAsset(new AssetCreateDto(assetSymbol, assetSymbol, category, category.isTradable()));
+                        asset = assetService.getAssetBySymbolAndCategory(assetSymbol, category);
+                    }
+
+                    Long parentAccountId = parentId != null && !parentId.isBlank() ? Long.valueOf(parentId) : null;
+
+                    accountService.createAccount(new AccountCreateDto(
+                            accountName,
+                            AccountType.ASSET,
+                            parentAccountId,
+                            asset.getId(),
+                            true
+                    ));
+
+                    systemAdjustmentService.initAccount(accountName, new BigDecimal(balanceStr));
+                    ctx.outputWriter().println("Account '" + accountName + "' created with opening balance " + balanceStr + " " + assetSymbol + ".");
                 });
     }
 
@@ -272,7 +364,7 @@ public class CommandsConfig {
         return Command.builder()
                 .name("transaction add")
                 .description("Add a new transaction")
-                .help("Add a new transaction. Usage: `transaction add --from-amount 100 --to-amount 100 --fee-amount 2.2 --date 2024-01-01 --description \"Grocery shopping\" --from-account-id 1 --to-account-id 2` \n Note: you can also use `--amount` option instead of `--from-amount` and `--to-amount` if the amounts are the same for both sides of the transaction.")
+                .help("Add a new transaction. Usage: `transaction add --from-amount 100 --to-amount 100 --fee-amount 2.2 --date 2024-01-01 --description \"Grocery shopping\" --from-account-id 1 --to-account-id 2` \n Note: you can also use `--amount` option instead of `--from-amount` and `--to-amount` if the amounts are the same for both sides of the transaction. \n Instead of `--from-account-id`/`--to-account-id` you can use `--from-account-name`/`--to-account-name`.")
                 .availabilityProvider(availabilityProvider())
                 .exitStatusExceptionMapper(exceptionMapper())
                 .options(
@@ -309,13 +401,25 @@ public class CommandsConfig {
                         CommandOption.with()
                                 .shortName('F')
                                 .longName("from-account-id")
-                                .required(true)
+                                .required(false)
                                 .type(String.class)
                                 .build(),
                         CommandOption.with()
                                 .shortName('T')
                                 .longName("to-account-id")
-                                .required(true)
+                                .required(false)
+                                .type(String.class)
+                                .build(),
+                        CommandOption.with()
+                                .shortName('N')
+                                .longName("from-account-name")
+                                .required(false)
+                                .type(String.class)
+                                .build(),
+                        CommandOption.with()
+                                .shortName('M')
+                                .longName("to-account-name")
+                                .required(false)
                                 .type(String.class)
                                 .build(),
                         CommandOption.with()
@@ -327,8 +431,23 @@ public class CommandsConfig {
                 .execute(ctx -> {
                     String usage = "Usage: `transaction add --from-amount 100 --to-amount 100 --fee-amount 2.2 --date 2024-01-01 --description \"Grocery shopping\" --from-account-id 1 --to-account-id 2` \n Note: you can also use `--amount` option instead of `--from-amount` and `--to-amount` if the amounts are the same for both sides of the transaction.";
                     String date = getOptionOrDefault(ctx, 'd', "date", LocalDate.now().format(DateTimeFormatter.ofPattern(DateUtil.DEFAULT_DATE_FORMAT)));
-                    String fromAccountId = getOptionOrError(ctx, 'F', "from-account-id", "<from-account-id> option is missing. \n" + usage);
-                    String toAccountId = getOptionOrError(ctx, 'T', "to-account-id", "<to-account-id> option is missing. \n" + usage);
+                    String fromAccountId = getOptionOrDefault(ctx, 'F', "from-account-id", null);
+                    String toAccountId = getOptionOrDefault(ctx, 'T', "to-account-id", null);
+                    String fromAccountName = getOptionOrDefault(ctx, 'N', "from-account-name", null);
+                    String toAccountName = getOptionOrDefault(ctx, 'M', "to-account-name", null);
+
+                    if (fromAccountId == null && fromAccountName != null) {
+                        fromAccountId = accountService.getAccountByName(fromAccountName).getId().toString();
+                    }
+                    if (toAccountId == null && toAccountName != null) {
+                        toAccountId = accountService.getAccountByName(toAccountName).getId().toString();
+                    }
+                    if (fromAccountId == null) {
+                        throw new IllegalArgumentException("Either --from-account-id or --from-account-name is required.");
+                    }
+                    if (toAccountId == null) {
+                        throw new IllegalArgumentException("Either --to-account-id or --to-account-name is required.");
+                    }
                     String description = getOptionOrDefault(ctx, 'D', "description", null);
                     String feeAmount = getOptionOrDefault(ctx, 'e', "fee-amount", "0");
 
@@ -716,11 +835,11 @@ public class CommandsConfig {
         return Command.builder()
                 .name("report nw")
                 .description("Generate balance sheet net worth report valued in a specific currency")
-                .help("Generate a financial report. Usage: `report nw --currency <currency>` and then follow the prompts to generate a report.")
+                .help("Generate a financial report. Usage: `report nw --currency EGP` or just `report nw` (defaults to EGP).")
                 .options(CommandOption.with()
                         .shortName('c')
                         .longName("currency")
-                        .required(true)
+                        .required(false)
                         .type(String.class)
                         .defaultValue("EGP")
                         .build()
@@ -728,8 +847,13 @@ public class CommandsConfig {
                 .availabilityProvider(availabilityProvider())
                 .exitStatusExceptionMapper(exceptionMapper())
                 .execute(ctx -> {
-                    String usage = "Usage: `report nw --currency <currency>` and then follow the prompts to generate a report.";
-                    String currency = getOptionOrError(ctx, 'c', "currency", "<currency> option is missing. \n" + usage);
+                    var args = ctx.parsedInput().arguments();
+                    String currency;
+                    if (!args.isEmpty()) {
+                        currency = args.getFirst().value();
+                    } else {
+                        currency = getOptionOrDefault(ctx, 'c', "currency", "EGP");
+                    }
 
                     NetworthReport report = reportService.generateNetworthReport(currency);
                     printReportInTerminal(report);

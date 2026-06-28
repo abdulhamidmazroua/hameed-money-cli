@@ -170,9 +170,9 @@ On first launch, the schema (`app_data` schema, 6 tables) and seed data (assets,
 
 ```
 1. Sync tradable instruments   ──►  asset fetch
-2. Register manual assets      ──►  asset register
-3. Create accounts             ──►  account create
-4. Set up opening balances     ──►  transaction add (SYSTEM_ADJUSTMENT)
+2. Register manual assets      ──►  asset register [--category <cat>]
+3. Create accounts             ──►  account create / account init (creates + opening balance)
+4. Set up opening balances     ──►  hmc init (or step 3 with account init)
 5. Set market quotes for FX    ──►  quote fetch / quote set
 6. Import CSV exports          ──►  ingest
 7. Create rules for uncategorised  ──►  rule add
@@ -257,49 +257,6 @@ The report converts every leaf balance to the target currency via the FinancialO
 
 ---
 
-## Making the Flow Seamless (Proposed Plan)
-
-The current flow works but requires too many manual lookups and command invocations. Here is a plan to reduce friction:
-
-### Short-term wins (minimal code, high impact)
-
-| Pain point | Solution |
-|------------|----------|
-| Need to look up account IDs before every command | Add `--name` / `--symbol` flags alongside `--account-id` / `--asset-id` for all commands, with interactive fuzzy-picking fallback. E.g. `transaction add` accepts `--from-account "Opening XYZ Balance"` instead of `--from-account-id 42` |
-| Opening balance requires 3 commands (register, create, add tx) | Add `account init --name "XYZ Account" --parent "Portfolio" --asset "XYZ" --balance 1000` — a single command that registers the asset if missing, creates the leaf account (and SYSTEM trio), and posts the opening balance transaction |
-| `report nw` needs `-c` flag | Accept positional arg: `report nw USD` works as a shorthand |
-| Asset registration is interactive-only for category | Add `--category` flag to `asset register` so it can be done non-interactively |
-
-### Medium-term (new capabilities)
-
-| Capability | Description |
-|------------|-------------|
-| **CSV-based onboarding** | `account import --file positions.csv` — batch-import a list of symbols, names, categories, and balances from a spreadsheet. Creates assets, accounts, and opening balance transactions in one shot |
-| **Interactive TUI dashboard** | A `dashboard` command that shows the account tree, latest quotes, and a "Quick Actions" menu (add balance → pick account → enter amount → done) |
-| **Balance assertion / reconciliation** | `account reconcile --id 5 --actual 50000` — compares the computed balance with the actual figure, prompts to create an adjustment transaction if they differ |
-| **Quote auto-warming** | On `asset fetch`, automatically fetch and store market quotes for newly synced instruments so they are ready for reporting immediately |
-
-### Long-term (architectural)
-
-| Improvement | Rationale |
-|-------------|-----------|
-| **Rename system accounts on asset rename** | If an asset symbol changes, the SYSTEM account names become stale. An `@EventListener` on asset update would rename them automatically |
-| **System account lifecycle management** | When the last leaf account for an asset is deleted, offer to clean up orphaned SYSTEM accounts |
-| **Undo / rollback support** | Wrapping each write operation in a named transaction that can be rolled back would let users recover from mistakes without manual compensating entries |
-
-### Quick wins I can implement now
-
-If you want, I can start with these:
-
-1. `asset register --category stock` — non-interactive mode
-2. `account init` — single-shot account + opening balance setup
-3. Positional arg for `report nw EGP`
-4. `--name` / `--symbol` option aliases for ID-based commands
-
-Which of these would you like me to tackle?
-
----
-
 ## Commands
 
 ### Asset Management
@@ -308,7 +265,7 @@ Which of these would you like me to tackle?
 |---------|-------------|
 | `cat-list` | List all available asset categories |
 | `asset list` | List all registered assets |
-| `asset register --name <name> --symbol <symbol>` | Register a new asset (prompts for category) |
+| `asset register --name <name> --symbol <symbol> [--category <cat>]` | Register a new asset. Without `--category`, prompts interactively. Categories: `stock`, `etf`, `fund`, `cash`, `crypto`, `commodity` |
 | `asset fetch --category <category> --exchange <exchange>` | Sync instrument listings from the configured data provider. Categories: `stock`, `etf`, `fund`. Supported exchanges: EGX, NASDAQ, NYSE, LSE, TSE, HKEX, ASX, TSX, BSE, NSE, TADAWUL, ADX, DFM, QE, EURONEXT, SSE, FWB, SIX, KRX, JPX |
 
 ### Account Management
@@ -316,7 +273,8 @@ Which of these would you like me to tackle?
 | Command | Description |
 |---------|-------------|
 | `account list` | List all accounts in a colour-coded hierarchical tree, grouped by master type |
-| `account create --name <name> --parent-account-id <id>` | Create an account (prompts for account type and asset; leave asset blank for folder accounts) |
+| `account create --name <name> --parent-account-id <id>` (or `--parent-account-name <name>`) | Create an account (prompts for account type and asset; leave asset blank for folder accounts) |
+| `account init --name <name> --asset <symbol> --balance <amount> [--parent-account-id <id>] [--category <cat>]` | One-shot: registers the asset if missing, creates the leaf account (+ SYSTEM trio), and posts the opening balance |
 
 ### Transaction Management
 
@@ -335,9 +293,13 @@ Which of these would you like me to tackle?
 | `-t` | `--to-amount` | No | Amount entering the destination |
 | `-d` | `--date` | Yes | Date (dd-MM-yyyy) |
 | `-D` | `--description` | No | Description |
-| `-F` | `--from-account-id` | Yes | Source account ID |
-| `-T` | `--to-account-id` | Yes | Destination account ID |
+| `-F` | `--from-account-id` | No* | Source account ID |
+| `-T` | `--to-account-id` | No* | Destination account ID |
+| `-N` | `--from-account-name` | No* | Source account name (alternative to `-F`) |
+| `-M` | `--to-account-name` | No* | Destination account name (alternative to `-T`) |
 | `-e` | `--fee-amount` | No | Fee (default: 0) |
+
+\* Either `-F`/`-T` (by ID) or `-N`/`-M` (by name) must be provided for each side.
 
 ### Ingestion
 
@@ -406,7 +368,7 @@ Manually registered stocks without exchange metadata fall back to the bare symbo
 
 | Command | Description |
 |---------|-------------|
-| `report nw --currency <currency>` | Generate a net worth / balance sheet report valued in the given currency |
+| `report nw [-c <currency>]` | Generate a net worth / balance sheet report valued in the given currency (defaults to EGP). `report nw` works without flags |
 | `report data-integrity` | Generate a data integrity audit report showing opening balance totals, manual adjustments, and system health % |
 
 The net worth report:

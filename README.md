@@ -24,8 +24,8 @@ Accounts form a pure organisational tree (like folders on a filesystem). The `as
 | Level | `asset_id` | Role |
 |-------|-----------|------|
 | **Root** | `NULL` | Top-level group by master type: `ASSET`, `LIABILITY`, `INCOME`, `EXPENSE`, `SYSTEM` |
-| **Parent** | `NULL` | Organisational folder (e.g. "Cash", "Stock", "Thndr Portfolio") — aggregates child balances |
-| **Leaf** | set | The actual account where money lives (e.g. "HSBC Current" → `EGP`, "CIB Stock" → `COMI.CA`) |
+| **Parent** | `NULL` | Organisational folder (e.g. "Cash", "Securities", "Thndr Portfolio") — aggregates child balances |
+| **Leaf** | set | The actual account where money lives (e.g. "HSBC Current Account" → `EGP`, "CIB Stock" → `COMI.CA`) |
 
 Only leaf accounts hold an asset and can appear in transactions. Parent accounts are unit-less containers — their "balance" is computed on the fly by summing leaf children and converting to the report currency.
 
@@ -33,10 +33,10 @@ Only leaf accounts hold an asset and can appear in transactions. Parent accounts
 AccountIs
 ├── ASSET
 │   ├── Cash (Internal)
-│   │   ├── HSBC Current      (EGP)
-│   │   ├── Misr Current      (EGP)
-│   │   └── Thndr Wallet      (EGP)
-│   ├── Stock (Internal)
+│   │   ├── HSBC Current Account (EGP)
+│   │   ├── Misr Current Account (EGP)
+│   │   └── Thndr Investment Account (EGP)
+│   ├── Securities (Internal)
 │   │   ├── Thndr Portfolio   (folder)
 │   │   │   ├── CIB Stock     (COMI.CA)
 │   │   │   └── Abu Qir       (ABUK.CA)
@@ -45,7 +45,7 @@ AccountIs
 │   │   └── Property
 │   └── Debt
 ├── LIABILITY
-│   └── Loan
+│   └── Loan Account
 ├── INCOME
 │   ├── Basic Salary
 │   └── Bonus
@@ -112,11 +112,11 @@ Opening balances and reconciliation corrections use the `is_system_adjustment` f
 
 1. **Initialise an account:**
    `hmc init --account "HSBC" --balance 50000`
-   → Creates a transaction: `Opening Balance (SYSTEM)` → `HSBC Current (ASSET)` with `is_system_adjustment = TRUE`
+    → Creates a transaction: `Opening Balance (SYSTEM)` → `HSBC Current Account (ASSET)` with `is_system_adjustment = TRUE`
 
 2. **Reconcile a difference:**
    `hmc reconcile --account "HSBC" --actual 49990`
-   → Creates a transaction: `HSBC Current (ASSET)` → `Balance Decrease Adjustment (SYSTEM)` with `is_system_adjustment = TRUE`
+    → Creates a transaction: `HSBC Current Account (ASSET)` → `Balance Decrease Adjustment (SYSTEM)` with `is_system_adjustment = TRUE`
 
 *These commands are part of the design spec; implementation status may vary.*
 
@@ -144,15 +144,14 @@ Each transaction is assigned an `external_ref_id` — a SHA-256 hash of `sourceS
 
 - Java 21+
 - PostgreSQL (create a database matching `application.properties`)
-- [TwelveData](https://twelvedata.com) API key for stock/forex data syncing
+- Python 3 + [`yfinance`](https://pypi.org/project/yfinance/) (`pip install yfinance`) for market quote fetching via `quote fetch`
+- (Optional) [TwelveData](https://twelvedata.com) API key — only needed if you set `hmc.market.data.provider.default=twelvedata` (see [Market Data Provider](#market-data-provider))
+- (Optional) [EODHD](https://eodhd.com) API key — set `EODHD_API_KEY` in `.env` (pre-configured, only needed if the default key is exhausted)
 
 ### Setup
 
 ```bash
-# 1. Set your TwelveData API key
-export TWELVE_DATA_API_KEY=your_key_here
-
-# 2. Start the application (schema and seed data load automatically)
+# 1. Start the application (schema and seed data load automatically)
 ./mvnw spring-boot:run
 ```
 
@@ -179,7 +178,7 @@ On first launch, the schema (`app_data` schema, 6 tables) and seed data (assets,
 | `cat-list` | List all available asset categories |
 | `asset list` | List all registered assets |
 | `asset register --name <name> --symbol <symbol>` | Register a new asset (prompts for category) |
-| `asset fetch --category STOCK --exchange <exchange>` | Sync stock listings from TwelveData API. Supported exchanges: EGX, NASDAQ, NYSE, LSE, TSE, HKEX, ASX, TSX, BSE, NSE, TADAWUL, ADX, DFM, QE, EURONEXT, SSE, FWB, SIX, KRX, JPX |
+| `asset fetch --category <category> --exchange <exchange>` | Sync instrument listings from the configured data provider. Categories: `stock`, `etf`, `fund`. Supported exchanges: EGX, NASDAQ, NYSE, LSE, TSE, HKEX, ASX, TSX, BSE, NSE, TADAWUL, ADX, DFM, QE, EURONEXT, SSE, FWB, SIX, KRX, JPX |
 
 ### Account Management
 
@@ -231,8 +230,46 @@ Rules are evaluated in priority order. When a description matches, the transacti
 
 | Command | Description |
 |---------|-------------|
-| `quote set --base <symbol> --quote <symbol> --price <value> [--date <date>]` | Store a market quote (e.g. USD→EGP = 48.5) |
+| `quote list` | List the latest stored quote for each asset pair |
+| `quote fetch --base <symbol> --quote <symbol>` | Auto-fetch latest price via Python [`yfinance`](https://pypi.org/project/yfinance/) (free, no API key). Handles stocks, forex, crypto, and commodities |
+| `quote set --base <symbol> --quote <symbol> --price <value> [--date <date>]` | Manually store a market quote (e.g. USD→EGP = 48.5) |
 | `quote get --base <symbol> --quote <symbol>` | Retrieve stored quotes for an asset pair |
+
+**Valid `quote fetch` directions:**
+
+| Base → Quote | Yahoo Symbol | Example |
+|---|---|---|
+| STOCK / ETF / FUND → CASH | `{exchange symbol}` + exchange suffix | `COMI.CA` (EGX), `AAPL` (NASDAQ) |
+| CASH → CASH | `{base}{quote}=X` | `USDEGP=X` |
+| CRYPTO → CASH | `{symbol}-{currency}` | `BTC-USD` |
+| COMMODITY → CASH | `{symbol}=F` | `GC=F` (gold) |
+
+For stocks, ETFs, and mutual funds, the Yahoo symbol is constructed from the asset symbol + the exchange's Yahoo suffix.
+The suffix is determined by looking up `asset.metadata.exchange` (from `asset fetch`) in the `StockExchange` enum:
+
+| Exchange | Yahoo Suffix | Example Symbols |
+|----------|-------------|----------------|
+| EGX | `.CA` | COMI.**CA**, ABUK.**CA** |
+| NASDAQ / NYSE | *(none)* | AAPL, MSFT |
+| LSE (London) | `.L` | HSBA.**L** |
+| TSE (Tokyo) | `.T` | 7203.**T** |
+| HKEX (Hong Kong) | `.HK` | 0700.**HK** |
+| ASX (Australia) | `.AX` | BHP.**AX** |
+| TSX (Toronto) | `.TO` | SHOP.**TO** |
+| BSE (India) | `.BO` | RELIANCE.**BO** |
+| NSE (India) | `.NS` | RELIANCE.**NS** |
+| TADAWUL (Saudi) | `.SR` | 2222.**SR** |
+| ADX / DFM (UAE) | `.AE` | EMAAR.**AE** |
+| QE (Qatar) | `.QA` | QNBK.**QA** |
+| EURONEXT | `.PA` | MC.**PA** |
+| SSE (Shanghai) | `.SS` | 600519.**SS** |
+| FWB (Frankfurt) | `.DE` | SAP.**DE** |
+| SIX (Swiss) | `.SW` | NESN.**SW** |
+| KRX (Korea) | `.KS` | 005930.**KS** |
+| JPX (Japan) | `.T` | 9984.**T** |
+
+If the symbol already ends with the correct suffix (as TwelveData returns them), no duplication occurs.
+Manually registered stocks without exchange metadata fall back to the bare symbol. Invalid directions (e.g. CASH → STOCK, STOCK → STOCK, PROPERTY → anything) are rejected with a suggestion.
 
 ### Reporting
 
@@ -270,7 +307,21 @@ Key properties in `src/main/resources/application.properties`:
 | `spring.datasource.password` | DB password (`hmc-password`) |
 | `spring.datasource.hikari.schema` | DB schema (`app_data`) |
 | `hmc.report.output-dir` | CSV report output directory (default: `~/hmc/reports`) |
-| `hmc.provider.twelve-data.api-key` | TwelveData API key — set via `TWELVE_DATA_API_KEY` env var |
+| `hmc.market.data.provider.default` | Market data provider: `eodhd` (default) or `twelvedata` |
+| `hmc.market.data.provider.eodhd.api-key` | EODHD API key — set via `EODHD_API_KEY` env var or `.env` |
+| `hmc.market.data.provider.twelve-data.api-key` | TwelveData API key for stock listings — set via `TWELVE_DATA_API_KEY` env var |
+
+### Market Data Provider
+
+`asset fetch` uses a pluggable `MarketDataProvider` interface. The active provider is selected via `hmc.market.data.provider.default` in `application.properties`:
+
+- **`eodhd`** (default) — fetches stocks, ETFs, and mutual funds from EODHD. Set `EODHD_API_KEY` in `.env`.
+- **`twelvedata`** — fetches stocks only from TwelveData. Requires `TWELVE_DATA_API_KEY` env var.
+
+To switch providers:
+```properties
+hmc.market.data.provider.default=twelvedata
+```
 
 ---
 
@@ -285,7 +336,7 @@ src/main/java/org/hameed/hameedmoneycli/
 ├── model/
 │   ├── dto/         # Request/response DTOs
 │   └── entity/      # JPA entities (Account, Asset, Transaction, MarketQuote, etc.)
-├── proxy/           # TwelveData REST client
+├── proxy/           # Market data providers (EODHD, TwelveData) + Yahoo Finance
 ├── repository/      # Spring Data JPA repositories
 ├── service/         # Business logic layer
 └── util/            # Ingestion strategy interface + implementations

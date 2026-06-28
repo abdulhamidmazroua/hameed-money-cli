@@ -12,7 +12,7 @@ import org.hibernate.type.SqlTypes;
 import java.util.Map;
 
 @Entity
-@Table(name = "asset")
+@Table(name = "asset", uniqueConstraints = @UniqueConstraint(columnNames = {"symbol", "category"}))
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -26,7 +26,7 @@ public class Asset {
     @Column(nullable = false, length = 255)
     private String name;
 
-    @Column(nullable = false, unique = true, length = 20)
+    @Column(nullable = false, length = 20)
     private String symbol;
 
     @Column(nullable = false, length = 50)

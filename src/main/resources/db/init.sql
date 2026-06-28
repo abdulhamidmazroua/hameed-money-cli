@@ -17,9 +17,11 @@ CREATE TABLE asset
 (
     id          BIGSERIAL PRIMARY KEY,
     name        VARCHAR(255)       NOT NULL,
-    symbol      VARCHAR(20) UNIQUE NOT NULL,
-    category    VARCHAR(32)       NOT NULL,
-    is_tradable BOOLEAN DEFAULT TRUE
+    symbol      VARCHAR(20)        NOT NULL,
+    category    VARCHAR(32)        NOT NULL,
+    is_tradable BOOLEAN NOT NULL DEFAULT TRUE,
+    metadata    JSONB,
+    UNIQUE (symbol, category)
 );
 
 CREATE TABLE account
@@ -96,33 +98,40 @@ CREATE TABLE market_quote
 );
 
 INSERT INTO asset (name, symbol, category, is_tradable)
+--seed with common currencies;
 VALUES ('Egyptian Pound', 'EGP', 'CASH', FALSE),
        ('US Dollar', 'USD', 'CASH', FALSE),
-       ('Commercial International Bank', 'COMI.CA', 'STOCK', TRUE),
-       ('Abu Qir Fertilizers', 'ABUK.CA', 'STOCK', TRUE);
+       ('Euro', 'EUR', 'CASH', FALSE),
+       ('British Pound', 'GBP', 'CASH', FALSE),
+       ('Swiss Franc', 'CHF', 'CASH', FALSE),
+       ('Canadian Dollar', 'CAD', 'CASH', FALSE),
+       ('Australian Dollar', 'AUD', 'CASH', FALSE),
+       ('Japanese Yen', 'JPY', 'CASH', FALSE),
+       ('Chinese Yuan', 'CNY', 'CASH', FALSE),
+       ('Saudi Riyal', 'SAR', 'CASH', FALSE),
+       ('UAE Dirham', 'AED', 'CASH', FALSE),
+       ('Kuwaiti Dinar', 'KWD', 'CASH', FALSE),
+       ('Qatari Riyal', 'QAR', 'CASH', FALSE),
+       ('Turkish Lira', 'TRY', 'CASH', FALSE);
 
 -- Organizational folders only where useful; master_type strings match Java AccountType, not separate account rows.
 INSERT INTO account (name, master_type, parent_id, asset_id, is_internal)
 VALUES ('Cash', 'ASSET', NULL, NULL, TRUE),
-       ('Stock', 'ASSET', NULL, NULL, TRUE),
+       ('Securities', 'ASSET', NULL, NULL, TRUE),
        ('Fixed', 'ASSET', NULL, NULL, TRUE),
        ('Debt', 'LIABILITY', NULL, NULL, TRUE);
 
 -- Cash bucket + leaves
 INSERT INTO account (name, master_type, parent_id, asset_id, is_internal)
-VALUES ('HSBC Current', 'ASSET', (SELECT id FROM account WHERE name = 'Cash'), (SELECT id FROM asset WHERE symbol = 'EGP'), TRUE),
-       ('Misr Current', 'ASSET', (SELECT id FROM account WHERE name = 'Cash'), (SELECT id FROM asset WHERE symbol = 'EGP'), TRUE),
-       ('Thndr Wallet', 'ASSET', (SELECT id FROM account WHERE name = 'Cash'), (SELECT id FROM asset WHERE symbol = 'EGP'), TRUE),
-       ('Loan', 'LIABILITY', (SELECT id FROM account WHERE name = 'Cash'), (SELECT id FROM asset WHERE symbol = 'EGP'), TRUE);
+VALUES ('HSBC Current Account', 'ASSET', (SELECT id FROM account WHERE name = 'Cash'), (SELECT id FROM asset WHERE symbol = 'EGP'), TRUE),
+       ('Misr Current Account', 'ASSET', (SELECT id FROM account WHERE name = 'Cash'), (SELECT id FROM asset WHERE symbol = 'EGP'), TRUE),
+       ('Thndr Investment Account', 'ASSET', (SELECT id FROM account WHERE name = 'Cash'), (SELECT id FROM asset WHERE symbol = 'EGP'), TRUE),
+       ('Loan Account', 'LIABILITY', (SELECT id FROM account WHERE name = 'Cash'), (SELECT id FROM asset WHERE symbol = 'EGP'), TRUE);
 
--- Stock: portfolio folders + instrument leaves
+-- Securities: portfolio folders + instrument leaves
 INSERT INTO account (name, master_type, parent_id, asset_id, is_internal)
-VALUES ('Thndr Portfolio', 'ASSET', (SELECT id FROM account WHERE name = 'Stock'), NULL, TRUE),
-       ('Etoro Portfolio', 'ASSET', (SELECT id FROM account WHERE name = 'Stock'), NULL, TRUE);
-
-INSERT INTO account (name, master_type, parent_id, asset_id, is_internal)
-VALUES ('CIB Stock', 'ASSET', (SELECT id FROM account WHERE name = 'Thndr Portfolio'), (SELECT id FROM asset WHERE symbol = 'COMI.CA'), TRUE),
-       ('Abu Qir', 'ASSET', (SELECT id FROM account WHERE name = 'Thndr Portfolio'), (SELECT id FROM asset WHERE symbol = 'ABUK.CA'), TRUE);
+VALUES ('Thndr Portfolio', 'ASSET', (SELECT id FROM account WHERE name = 'Securities'), NULL, TRUE),
+       ('Etoro Portfolio', 'ASSET', (SELECT id FROM account WHERE name = 'Securities'), NULL, TRUE);
 
 INSERT INTO account (name, master_type, parent_id, asset_id, is_internal)
 VALUES ('Property', 'ASSET', (SELECT id FROM account WHERE name = 'Fixed'), NULL, TRUE);
@@ -150,13 +159,13 @@ VALUES ('Opening Balance', 'SYSTEM', NULL, (SELECT id FROM asset WHERE symbol = 
        ('Balance Decrease Adjustment', 'SYSTEM', NULL, (SELECT id FROM asset WHERE symbol = 'EGP'), FALSE);
 
 INSERT INTO source_system (name, code, anchored_account_id)
-VALUES ('HSBC Egypt App', 'HSBC_APP', (SELECT id FROM account WHERE name = 'HSBC Current')),
-       ('Banque Misr App', 'BANQUE_MISR_APP', (SELECT id FROM account WHERE name = 'Misr Current')),
-       ('Thndr App', 'THNDR_APP', (SELECT id FROM account WHERE name = 'Thndr Wallet')),
-       ('Manual entry', 'MANUAL_ENTRY', (SELECT id FROM account WHERE name = 'HSBC Current'));
+VALUES ('HSBC Egypt App', 'HSBC_APP', (SELECT id FROM account WHERE name = 'HSBC Current Account')),
+       ('Banque Misr App', 'BANQUE_MISR_APP', (SELECT id FROM account WHERE name = 'Misr Current Account')),
+       ('Thndr App', 'THNDR_APP', (SELECT id FROM account WHERE name = 'Thndr Investment Account')),
+       ('Manual entry', 'MANUAL_ENTRY', (SELECT id FROM account WHERE name = 'HSBC Current Account'));
 
 INSERT INTO ingestion_rule (match_pattern, target_account_id, priority)
-VALUES ('(?i).*Thndr.*', (SELECT id FROM account WHERE name = 'Thndr Wallet'), 200),
+VALUES ('(?i).*Thndr.*', (SELECT id FROM account WHERE name = 'Thndr Investment Account'), 200),
        ('(?i).*(Life Makers|Zakat|Sadakat|Bait El).*', (SELECT id FROM account WHERE name = 'Charity'), 190),
        ('(?i).*(Mobile Recharge|Land Line|Home Internet|Purchase from).*', (SELECT id FROM account WHERE name = 'MobileRecharge'), 180),
        ('(?i).*CARD TRANSACTION.*ATM.*', (SELECT id FROM account WHERE name = 'PocketMoney'), 175),

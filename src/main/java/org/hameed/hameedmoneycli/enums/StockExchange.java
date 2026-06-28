@@ -1,26 +1,35 @@
 package org.hameed.hameedmoneycli.enums;
 
+import lombok.Getter;
+
+@Getter
 public enum StockExchange {
-    EGX,
-    NASDAQ,
-    NYSE,
-    LSE,
-    TSE,
-    HKEX,
-    ASX,
-    TSX,
-    BSE,
-    NSE,
-    TADAWUL,
-    ADX,
-    DFM,
-    QE,
-    EURONEXT,
-    SSE,
-    FWB,
-    SIX,
-    KRX,
-    JPX;
+    EGX(".CA"),
+    NASDAQ(""),
+    NYSE(""),
+    LSE(".L"),
+    TSE(".T"),
+    HKEX(".HK"),
+    ASX(".AX"),
+    TSX(".TO"),
+    BSE(".BO"),
+    NSE(".NS"),
+    TADAWUL(".SR"),
+    ADX(".AE"),
+    DFM(".AE"),
+    QE(".QA"),
+    EURONEXT(".PA"),
+    SSE(".SS"),
+    FWB(".DE"),
+    SIX(".SW"),
+    KRX(".KS"),
+    JPX(".T");
+
+    private final String yahooSuffix;
+
+    StockExchange(String yahooSuffix) {
+        this.yahooSuffix = yahooSuffix;
+    }
 
     public static StockExchange fromString(String exchange) {
         for (StockExchange stockExchange : StockExchange.values()) {

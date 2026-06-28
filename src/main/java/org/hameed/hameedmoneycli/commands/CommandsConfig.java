@@ -75,14 +75,11 @@ public class CommandsConfig {
                     String category = getOptionOrError(ctx, 'c', "category", "<category> option is missing");
                     AssetCategory assetCategory = AssetCategory.fromString(category);
 
-                    switch (assetCategory) {
-                        case AssetCategory.STOCK -> {
-                            String exchange = getOptionOrError(ctx, 'e', "exchange", "<exchange> option is missing");
-                            assetService.syncAssetData(StockExchange.fromString(exchange));
-                        } default -> {
-                            throw new IllegalArgumentException("This category is not supported. Consider using STOCK");
-                        }
+                    if (assetCategory != AssetCategory.STOCK && assetCategory != AssetCategory.ETF && assetCategory != AssetCategory.MUTUAL_FUND) {
+                        throw new IllegalArgumentException("Unsupported category: " + category + ". Use stock, etf, or fund.");
                     }
+                    String exchange = getOptionOrError(ctx, 'e', "exchange", "<exchange> option is missing");
+                    assetService.syncAssetData(StockExchange.fromString(exchange), assetCategory);
 
 
                 });
@@ -117,7 +114,7 @@ public class CommandsConfig {
                             .withSingleItemSelector("assetCategory")
                             .name("Asset Category: ")
                             .selectItems(List.of(AssetCategory.values()).stream()
-                                    .map(category -> SelectItem.of(category.toString(), category.toString()))
+                                    .map(category -> SelectItem.of(category.getCategory(), category.getCategory()))
                                     .toList(
                                     )).and().build().run();
 
@@ -126,6 +123,7 @@ public class CommandsConfig {
                 });
     }
 
+    @Bean
     public Command createAccount() {
         return Command.builder()
                 .name("account create")
@@ -205,6 +203,44 @@ public class CommandsConfig {
                         printAccountTree(accountsInType, null, 0);
                         System.out.println();
                     });
+                });
+    }
+
+    @Bean
+    public Command deleteAccount() {
+        return Command.builder()
+                .name("account delete")
+                .description("Delete an account")
+                .help("Delete an account. Usage: `account delete --account-id <id>`")
+                .options(CommandOption.with()
+                        .shortName('a')
+                        .longName("account-id")
+                        .required(false)
+                        .type(String.class)
+                        .build())
+                .exitStatusExceptionMapper(exceptionMapper())
+                .availabilityProvider(availabilityProvider())
+                .execute(ctx -> {
+                    String usage = "Usage: `account delete --account-id <id>`";
+                    String accountIdStr = getOptionOrDefault(ctx, 'a', "account-id", null);
+
+                    if (accountIdStr == null) {
+                        List<SelectItem> accountChoices = accountService.getAllAccounts().stream()
+                                .map(acct -> SelectItem.of(
+                                        acct.getName() + " (ID: " + acct.getId() + ")",
+                                        acct.getId().toString()))
+                                .toList();
+                        ComponentFlow.ComponentFlowResult result = componentFlowBuilder.clone().reset()
+                                .withSingleItemSelector("accountId")
+                                .name("Select account to delete:")
+                                .selectItems(accountChoices)
+                                .and().build().run();
+                        accountIdStr = result.getContext().get("accountId", String.class);
+                    }
+
+                    Long accountId = Long.valueOf(accountIdStr);
+                    accountService.deleteAccount(accountId);
+                    ctx.outputWriter().println("Deleted account ID " + accountId);
                 });
     }
 
@@ -610,6 +646,61 @@ public class CommandsConfig {
 
                     List<MarketQuoteDto> marketQuotes = marketQuoteService.getMarketQuote(baseSymbol, quoteSymbol);
                     marketQuotes.forEach(quote -> ctx.outputWriter().println("Price of " + quote.baseSymbol() + " in " + quote.quoteSymbol() + " is " + quote.price() + " (as of " + quote.marketQuoteDate() + ")"));
+                });
+    }
+
+    @Bean
+    public Command fetchQuote() {
+        return Command.builder()
+                .name("quote fetch")
+                .description("Fetch the latest quote from Yahoo Finance and save it")
+                .help("Fetch the latest quote from Yahoo Finance and save it. Usage: `quote fetch --base AAPL --quote USD`")
+                .options(
+                        CommandOption.with()
+                                .shortName('b')
+                                .longName("base")
+                                .required(true)
+                                .type(String.class)
+                                .build(),
+                        CommandOption.with()
+                                .shortName('q')
+                                .longName("quote")
+                                .required(true)
+                                .type(String.class)
+                                .build()
+                )
+                .availabilityProvider(availabilityProvider())
+                .exitStatusExceptionMapper(exceptionMapper())
+                .execute(ctx -> {
+                    String usage = "Usage: `quote fetch --base <asset-symbol> --quote <asset-symbol>`";
+                    String baseSymbol = getOptionOrError(ctx, 'b', "base", "<base> option is missing. \n" + usage);
+                    String quoteSymbol = getOptionOrError(ctx, 'q', "quote", "<quote> option is missing. \n" + usage);
+
+                    marketQuoteService.fetchAndSaveQuote(baseSymbol, quoteSymbol);
+                    ctx.outputWriter().println("Saved quote: " + baseSymbol + " -> " + quoteSymbol);
+                });
+    }
+
+    @Bean
+    public Command listQuotes() {
+        return Command.builder()
+                .name("quote list")
+                .description("List all stored market quotes")
+                .help("List the latest quote for each asset pair. Usage: `quote list`")
+                .availabilityProvider(availabilityProvider())
+                .exitStatusExceptionMapper(exceptionMapper())
+                .execute(ctx -> {
+                    List<MarketQuoteDto> quotes = marketQuoteService.listMarketQuotes();
+                    if (quotes.isEmpty()) {
+                        ctx.outputWriter().println("No market quotes stored.");
+                        return;
+                    }
+                    String format = "%-12s %-12s %-12s %s";
+                    ctx.outputWriter().println(String.format(format, "Base", "Quote", "Price", "Date"));
+                    ctx.outputWriter().println(String.format(format, "----", "-----", "-----", "----"));
+                    for (MarketQuoteDto q : quotes) {
+                        ctx.outputWriter().println(String.format(format, q.baseSymbol(), q.quoteSymbol(), q.price(), q.marketQuoteDate()));
+                    }
                 });
     }
 

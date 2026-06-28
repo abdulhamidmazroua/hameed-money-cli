@@ -47,7 +47,7 @@ public class Account {
     private Asset asset;
 
     @Column(name = "is_internal", nullable = false)
-    private Boolean isInternal;
+    private Boolean isInternal = true;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     @CreatedDate

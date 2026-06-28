@@ -5,6 +5,8 @@ import lombok.Getter;
 @Getter
 public enum AssetCategory {
     STOCK("stock"),
+    ETF("etf"),
+    MUTUAL_FUND("fund"),
     CASH("cash"),
     CRYPTO("crypto"),
     COMMODITY("commodity"),
@@ -26,12 +28,9 @@ public enum AssetCategory {
         throw new IllegalArgumentException("No enum constant for category: " + category);
     }
 
-    // TODO: remove this later and define more business rules to determine if an asset is tradable or not (maybe one category can be tradable or not based on other factors)
     public boolean isTradable() {
-        return
-                (this == STOCK ||
-                this == CRYPTO ||
-                this == COMMODITY);
+        return this == STOCK || this == ETF || this == MUTUAL_FUND ||
+                this == CRYPTO || this == COMMODITY;
     }
 
 }

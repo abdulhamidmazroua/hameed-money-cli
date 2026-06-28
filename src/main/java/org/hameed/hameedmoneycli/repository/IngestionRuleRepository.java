@@ -14,4 +14,6 @@ public interface IngestionRuleRepository extends JpaRepository<IngestionRule, Lo
 
     @Query("SELECT COALESCE(MAX(r.priority), 0) FROM IngestionRule r")
     int findMaxPriority();
+
+    boolean existsByTargetAccount_Id(Long accountId);
 }

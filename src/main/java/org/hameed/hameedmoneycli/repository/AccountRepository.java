@@ -15,4 +15,6 @@ public interface AccountRepository extends JpaRepository<Account, Long> {
 
     @Query("select a from Account a where a.asset.id is not null")
     List<Account> getLeafAccounts();
+
+    boolean existsByParent_Id(Long parentId);
 }

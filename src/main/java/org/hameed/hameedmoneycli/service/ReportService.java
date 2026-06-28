@@ -2,6 +2,7 @@ package org.hameed.hameedmoneycli.service;
 
 import lombok.RequiredArgsConstructor;
 import org.hameed.hameedmoneycli.enums.AccountType;
+import org.hameed.hameedmoneycli.enums.AssetCategory;
 import org.hameed.hameedmoneycli.model.dto.NetworthReport;
 import org.hameed.hameedmoneycli.model.entity.Account;
 import org.hameed.hameedmoneycli.model.entity.Asset;
@@ -28,7 +29,7 @@ public class ReportService {
 
     public NetworthReport generateNetworthReport(String currency) {
         FinancialOracle financialOracle = marketQuoteService.getFinancialOracle();
-        Asset targetAsset = assetRepository.findBySymbol(currency)
+        Asset targetAsset = assetRepository.findBySymbolAndCategory(currency, AssetCategory.CASH)
                 .orElseThrow(() -> new IllegalArgumentException("Asset not found: " + currency));
 
         Map<Long, BigDecimal> rateCache = new HashMap<>();

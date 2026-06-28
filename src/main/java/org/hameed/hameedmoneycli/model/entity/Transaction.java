@@ -59,11 +59,11 @@ public class Transaction {
     private String externalRefId;
 
     @ManyToOne
-    @JoinColumn(name = "source_system_id")
+    @JoinColumn(name = "source_system_id", nullable = false)
     private SourceSystem sourceSystem;
 
     @Column(name = "is_system_adjustment", nullable = false)
-    private Boolean isSystemAdjustment;
+    private Boolean isSystemAdjustment = false;
 
     @Column(columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)

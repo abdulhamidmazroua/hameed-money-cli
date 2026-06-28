@@ -5,12 +5,11 @@ import org.hameed.hameedmoneycli.enums.AssetCategory;
 import org.hameed.hameedmoneycli.enums.StockExchange;
 import org.hameed.hameedmoneycli.model.dto.AssetCreateDto;
 import org.hameed.hameedmoneycli.model.entity.Asset;
-import org.hameed.hameedmoneycli.proxy.TwelveDataProxy;
-import org.hameed.hameedmoneycli.proxy.dto.TwelveDataStockDto;
+import org.hameed.hameedmoneycli.provider.MarketDataProvider;
+import org.hameed.hameedmoneycli.provider.MarketInstrument;
 import org.hameed.hameedmoneycli.repository.AssetRepository;
 import org.springframework.stereotype.Service;
 
-import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -19,9 +18,8 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class AssetService {
 
-
     private final AssetRepository assetRepository;
-    private final TwelveDataProxy twelveDataProxy;
+    private final MarketDataProvider marketDataProvider;
 
     public void createAsset(AssetCreateDto newAsset) {
         Asset asset = Asset.builder()
@@ -31,7 +29,6 @@ public class AssetService {
                 .isTradable(newAsset.isTradable())
                 .build();
         assetRepository.save(asset);
-
     }
 
     public void createAsset(AssetCreateDto newAsset, Map<String, String> metadata) {
@@ -43,7 +40,6 @@ public class AssetService {
                 .build();
         asset.setMetadata(metadata);
         assetRepository.save(asset);
-
     }
 
     public Asset getAssetById(Long id) {
@@ -52,33 +48,51 @@ public class AssetService {
     }
 
     public Asset getAssetBySymbol(String symbol) {
-        return assetRepository.findBySymbol(symbol)
+        return assetRepository.findFirstBySymbol(symbol)
                 .orElseThrow(() -> new IllegalArgumentException("Asset with symbol " + symbol + " not found"));
+    }
+
+    public Asset getAssetBySymbolAndCategory(String symbol, AssetCategory category) {
+        return assetRepository.findBySymbolAndCategory(symbol, category)
+                .orElseThrow(() -> new IllegalArgumentException("Asset with symbol " + symbol + " and category " + category + " not found"));
     }
 
     public List<Asset> getAllAssets() {
         return assetRepository.findAll();
     }
 
-    public void syncAssetData(StockExchange stockExchange) {
-        List<Map<String, String>> assetDataList = twelveDataProxy.getStockData(stockExchange.toString());
+    public void syncAssetData(StockExchange stockExchange, AssetCategory category) {
+        List<MarketInstrument> instruments = marketDataProvider.getExchangeSymbols(stockExchange.toString(), category);
 
-        assetDataList.forEach(assetData -> {
-            Asset existingAsset = assetRepository.findBySymbol(assetData.get("symbol")).orElse(null);
+        instruments.forEach(instrument -> {
+            Asset existingAsset = assetRepository.findBySymbolAndCategory(instrument.symbol(), category).orElse(null);
+
+            Map<String, String> metadata = buildMetadata(instrument);
 
             if (existingAsset != null) {
-                existingAsset.setName(assetData.get("name"));
-                existingAsset.setMetadata(assetData);
+                existingAsset.setName(instrument.name());
+                existingAsset.setMetadata(metadata);
                 assetRepository.save(existingAsset);
             } else {
                 AssetCreateDto assetCreateDto = new AssetCreateDto(
-                        assetData.get("name"),
-                        assetData.get("symbol"),
-                        AssetCategory.STOCK,
+                        instrument.name(),
+                        instrument.symbol(),
+                        instrument.category(),
                         true
                 );
-                this.createAsset(assetCreateDto, assetData);
+                this.createAsset(assetCreateDto, metadata);
             }
         });
+    }
+
+    private Map<String, String> buildMetadata(MarketInstrument instrument) {
+        Map<String, String> metadata = new HashMap<>();
+        metadata.put("symbol", instrument.symbol());
+        metadata.put("name", instrument.name());
+        metadata.put("currency", instrument.currency());
+        metadata.put("exchange", instrument.exchange());
+        metadata.put("country", instrument.country());
+        metadata.put("isin", instrument.isin());
+        return metadata;
     }
 }

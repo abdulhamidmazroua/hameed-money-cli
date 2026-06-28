@@ -153,10 +153,11 @@ VALUES ('Food', 'EXPENSE', NULL, (SELECT id FROM asset WHERE symbol = 'EGP'), FA
        ('Lending', 'EXPENSE', NULL, (SELECT id FROM asset WHERE symbol = 'EGP'), FALSE);
 
 -- System adjustments (see System Adjustments.md): SYSTEM master_type keeps them out of income/expense P&L; pair with is_system_adjustment on transaction
+-- One trio per asset, created automatically when a new leaf account uses a new asset. Seed for the initial EGP accounts.
 INSERT INTO account (name, master_type, parent_id, asset_id, is_internal)
-VALUES ('Opening Balance', 'SYSTEM', NULL, (SELECT id FROM asset WHERE symbol = 'EGP'), FALSE),
-       ('Balance Increase Adjustment', 'SYSTEM', NULL, (SELECT id FROM asset WHERE symbol = 'EGP'), FALSE),
-       ('Balance Decrease Adjustment', 'SYSTEM', NULL, (SELECT id FROM asset WHERE symbol = 'EGP'), FALSE);
+VALUES ('Opening EGP Balance', 'SYSTEM', NULL, (SELECT id FROM asset WHERE symbol = 'EGP'), FALSE),
+       ('EGP Balance Increase Adjustment', 'SYSTEM', NULL, (SELECT id FROM asset WHERE symbol = 'EGP'), FALSE),
+       ('EGP Balance Decrease Adjustment', 'SYSTEM', NULL, (SELECT id FROM asset WHERE symbol = 'EGP'), FALSE);
 
 INSERT INTO source_system (name, code, anchored_account_id)
 VALUES ('HSBC Egypt App', 'HSBC_APP', (SELECT id FROM account WHERE name = 'HSBC Current Account')),

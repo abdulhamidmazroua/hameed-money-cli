@@ -1,5 +1,6 @@
 package org.hameed.hameedmoneycli.repository;
 
+import org.hameed.hameedmoneycli.enums.AccountType;
 import org.hameed.hameedmoneycli.model.entity.Account;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -17,4 +18,6 @@ public interface AccountRepository extends JpaRepository<Account, Long> {
     List<Account> getLeafAccounts();
 
     boolean existsByParent_Id(Long parentId);
+
+    boolean existsByAsset_IdAndMasterType(Long assetId, AccountType masterType);
 }

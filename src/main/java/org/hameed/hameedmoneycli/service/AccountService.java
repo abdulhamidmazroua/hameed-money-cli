@@ -1,6 +1,7 @@
 package org.hameed.hameedmoneycli.service;
 
 import lombok.RequiredArgsConstructor;
+import org.hameed.hameedmoneycli.enums.AccountType;
 import org.hameed.hameedmoneycli.model.dto.AccountCreateDto;
 import org.hameed.hameedmoneycli.model.entity.Account;
 import org.hameed.hameedmoneycli.model.entity.Asset;
@@ -42,6 +43,10 @@ public class AccountService {
                 .isInternal(newAccount.isInternal())
                 .build();
         accountRepository.save(account);
+
+        if (asset != null) {
+            ensureSystemAccounts(asset);
+        }
     }
 
     public List<Account> getAllAccounts() {
@@ -70,6 +75,32 @@ public class AccountService {
         }
 
         accountRepository.delete(account);
+    }
+
+    private void ensureSystemAccounts(Asset asset) {
+        if (accountRepository.existsByAsset_IdAndMasterType(asset.getId(), AccountType.SYSTEM)) {
+            return;
+        }
+
+        String sym = asset.getSymbol();
+        accountRepository.save(Account.builder()
+                .name("Opening " + sym + " Balance")
+                .masterType(AccountType.SYSTEM)
+                .asset(asset)
+                .isInternal(false)
+                .build());
+        accountRepository.save(Account.builder()
+                .name(sym + " Balance Increase Adjustment")
+                .masterType(AccountType.SYSTEM)
+                .asset(asset)
+                .isInternal(false)
+                .build());
+        accountRepository.save(Account.builder()
+                .name(sym + " Balance Decrease Adjustment")
+                .masterType(AccountType.SYSTEM)
+                .asset(asset)
+                .isInternal(false)
+                .build());
     }
 
 

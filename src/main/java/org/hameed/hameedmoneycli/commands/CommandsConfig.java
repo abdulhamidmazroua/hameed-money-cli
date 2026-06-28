@@ -6,6 +6,7 @@ import org.hameed.hameedmoneycli.model.dto.*;
 import org.hameed.hameedmoneycli.model.entity.Account;
 import org.hameed.hameedmoneycli.model.entity.Asset;
 import org.hameed.hameedmoneycli.service.*;
+import org.hameed.hameedmoneycli.util.DateUtil;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.shell.core.command.*;
@@ -18,6 +19,10 @@ import org.springframework.shell.jline.tui.component.flow.SelectItem;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
+import java.text.DateFormat;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -319,7 +324,7 @@ public class CommandsConfig {
                                 .build())
                 .execute(ctx -> {
                     String usage = "Usage: `transaction add --from-amount 100 --to-amount 100 --fee-amount 2.2 --date 2024-01-01 --description \"Grocery shopping\" --from-account-id 1 --to-account-id 2` \n Note: you can also use `--amount` option instead of `--from-amount` and `--to-amount` if the amounts are the same for both sides of the transaction.";
-                    String date = getOptionOrError(ctx, 'd', "date", "<date> option is missing. \n" + usage);
+                    String date = getOptionOrDefault(ctx, 'd', "date", LocalDate.now().format(DateTimeFormatter.ofPattern(DateUtil.DEFAULT_DATE_FORMAT)));
                     String fromAccountId = getOptionOrError(ctx, 'F', "from-account-id", "<from-account-id> option is missing. \n" + usage);
                     String toAccountId = getOptionOrError(ctx, 'T', "to-account-id", "<to-account-id> option is missing. \n" + usage);
                     String description = getOptionOrDefault(ctx, 'D', "description", null);

@@ -59,10 +59,12 @@ AccountIs
 │   ├── Charity
 │   └── Lending
 └── SYSTEM
-    ├── Opening Balance
-    ├── Balance Increase Adjustment
-    └── Balance Decrease Adjustment
+    ├── Opening EGP Balance
+    ├── EGP Balance Increase Adjustment
+    └── EGP Balance Decrease Adjustment
 ```
+
+Each asset in the system gets its own trio of SYSTEM accounts to provide consistent balancing units for opening balances and reconciliation adjustments. These are created automatically when a leaf account with that asset is first created (see [System Adjustments](#system-adjustments)).
 
 ### Internal vs External Accounts
 
@@ -108,15 +110,24 @@ Opening balances and reconciliation corrections use the `is_system_adjustment` f
 - **Net worth report:** includes system adjustments (the money is in your account).
 - **Income/Expense report:** filters system adjustments out (your opening balance won't appear as "income").
 
+Each asset used in the ledger gets a dedicated trio of SYSTEM accounts. They are auto-created when a leaf account referencing that asset is first created (via `account create`). The naming convention is:
+
+| Symbol | Opening Balance | Increase Adjustment | Decrease Adjustment |
+|--------|----------------|---------------------|---------------------|
+| `EGP` | `Opening EGP Balance` | `EGP Balance Increase Adjustment` | `EGP Balance Decrease Adjustment` |
+| `COMI` | `Opening COMI Balance` | `COMI Balance Increase Adjustment` | `COMI Balance Decrease Adjustment` |
+
+This ensures every transaction leg uses the same unit (e.g. opening EGP cash uses `Opening EGP Balance`, opening COMI shares uses `Opening COMI Balance`), so account balances are always mathematically meaningful.
+
 **Workflow:**
 
 1. **Initialise an account:**
    `hmc init --account "HSBC" --balance 50000`
-    → Creates a transaction: `Opening Balance (SYSTEM)` → `HSBC Current Account (ASSET)` with `is_system_adjustment = TRUE`
+    → Creates a transaction: `Opening EGP Balance (SYSTEM)` → `HSBC Current Account (ASSET)` with `is_system_adjustment = TRUE`
 
 2. **Reconcile a difference:**
    `hmc reconcile --account "HSBC" --actual 49990`
-    → Creates a transaction: `HSBC Current Account (ASSET)` → `Balance Decrease Adjustment (SYSTEM)` with `is_system_adjustment = TRUE`
+    → Creates a transaction: `HSBC Current Account (ASSET)` → `EGP Balance Decrease Adjustment (SYSTEM)` with `is_system_adjustment = TRUE`
 
 *These commands are part of the design spec; implementation status may vary.*
 
@@ -160,12 +171,134 @@ On first launch, the schema (`app_data` schema, 6 tables) and seed data (assets,
 ### Typical Workflow
 
 ```
-1. Register assets and create accounts  ──►  asset register / account create
-2. Set market quotes for FX and stocks  ──►  quote set
-3. Import CSV exports from your bank    ──►  ingest
-4. Create rules for uncategorised items  ──►  rule add
-5. Run reports to see your net worth     ──►  report nw
+1. Sync tradable instruments   ──►  asset fetch
+2. Register manual assets      ──►  asset register
+3. Create accounts             ──►  account create
+4. Set up opening balances     ──►  transaction add (SYSTEM_ADJUSTMENT)
+5. Set market quotes for FX    ──►  quote fetch / quote set
+6. Import CSV exports          ──►  ingest
+7. Create rules for uncategorised  ──►  rule add
+8. Run reports                 ──►  report nw
 ```
+
+---
+
+## General Onboarding Walkthrough
+
+Setting up a new position in the ledger follows this general flow:
+
+```
+asset fetch / asset register  →  account create  →  transaction add (opening balance)  →  quote fetch / quote set  →  report nw
+```
+
+### Step 1: Sync tradable instruments from the provider
+
+```bash
+asset fetch --category stock --exchange NASDAQ
+asset fetch --category etf --exchange LSE
+```
+
+This pulls listed stocks/ETFs/funds from the configured market data provider (EODHD or TwelveData) and stores them in the `asset` table with their ISIN, currency, and exchange metadata.
+
+Supported exchanges: EGX, NASDAQ, NYSE, LSE, TSE, HKEX, ASX, TSX, BSE, NSE, TADAWUL, ADX, DFM, QE, EURONEXT, SSE, FWB, SIX, KRX, JPX.
+
+### Step 2: Manually register assets not found by the provider
+
+Some instruments — particularly mutual funds, local closed-end funds, or OTC securities — may not appear in the provider's exchange-symbol-list. Register them manually:
+
+```bash
+asset register --name "Some Mutual Fund" --symbol XYZ
+```
+
+Prompts for category — choose from `stock`, `etf`, `fund`, `cash`, `crypto`, `commodity`.
+
+### Step 3: Create a leaf account
+
+```bash
+account create --name "XYZ Fund Account" --parent-account-id <parent-id>
+```
+
+Prompts for:
+- **Account Type** — typically `ASSET` for investment positions
+- **Asset** — the registered asset to denominate this account
+
+This automatically creates a SYSTEM account trio for the asset (if one doesn't already exist):
+- `Opening <symbol> Balance`
+- `<symbol> Balance Increase Adjustment`
+- `<symbol> Balance Decrease Adjustment`
+
+### Step 4: Record the opening balance
+
+```bash
+transaction add --amount <quantity> --from-account-id <system-account-id> --to-account-id <leaf-account-id> \
+    --description "Opening balance for XYZ"
+```
+Select `SYSTEM_ADJUSTMENT` as the transaction type. The source is the asset's SYSTEM opening account, the destination is the leaf account.
+
+### Step 5: Set a market quote
+
+For securities, fetch from Yahoo Finance automatically:
+
+```bash
+quote fetch --base XYZ --quote USD
+```
+
+For assets without a Yahoo Finance listing (or for manual valuation), set the price directly:
+
+```bash
+quote set --base XYZ --quote USD --price 12.50 --date 2025-01-15
+```
+
+### Step 6: Generate the net worth report
+
+```bash
+report nw -c USD
+```
+
+The report converts every leaf balance to the target currency via the FinancialOracle graph and prints `totalAssets`, `totalLiabilities`, and `netWorth`.
+
+---
+
+## Making the Flow Seamless (Proposed Plan)
+
+The current flow works but requires too many manual lookups and command invocations. Here is a plan to reduce friction:
+
+### Short-term wins (minimal code, high impact)
+
+| Pain point | Solution |
+|------------|----------|
+| Need to look up account IDs before every command | Add `--name` / `--symbol` flags alongside `--account-id` / `--asset-id` for all commands, with interactive fuzzy-picking fallback. E.g. `transaction add` accepts `--from-account "Opening XYZ Balance"` instead of `--from-account-id 42` |
+| Opening balance requires 3 commands (register, create, add tx) | Add `account init --name "XYZ Account" --parent "Portfolio" --asset "XYZ" --balance 1000` — a single command that registers the asset if missing, creates the leaf account (and SYSTEM trio), and posts the opening balance transaction |
+| `report nw` needs `-c` flag | Accept positional arg: `report nw USD` works as a shorthand |
+| Asset registration is interactive-only for category | Add `--category` flag to `asset register` so it can be done non-interactively |
+
+### Medium-term (new capabilities)
+
+| Capability | Description |
+|------------|-------------|
+| **CSV-based onboarding** | `account import --file positions.csv` — batch-import a list of symbols, names, categories, and balances from a spreadsheet. Creates assets, accounts, and opening balance transactions in one shot |
+| **Interactive TUI dashboard** | A `dashboard` command that shows the account tree, latest quotes, and a "Quick Actions" menu (add balance → pick account → enter amount → done) |
+| **Balance assertion / reconciliation** | `account reconcile --id 5 --actual 50000` — compares the computed balance with the actual figure, prompts to create an adjustment transaction if they differ |
+| **Quote auto-warming** | On `asset fetch`, automatically fetch and store market quotes for newly synced instruments so they are ready for reporting immediately |
+
+### Long-term (architectural)
+
+| Improvement | Rationale |
+|-------------|-----------|
+| **Rename system accounts on asset rename** | If an asset symbol changes, the SYSTEM account names become stale. An `@EventListener` on asset update would rename them automatically |
+| **System account lifecycle management** | When the last leaf account for an asset is deleted, offer to clean up orphaned SYSTEM accounts |
+| **Undo / rollback support** | Wrapping each write operation in a named transaction that can be rolled back would let users recover from mistakes without manual compensating entries |
+
+### Quick wins I can implement now
+
+If you want, I can start with these:
+
+1. `asset register --category stock` — non-interactive mode
+2. `account init` — single-shot account + opening balance setup
+3. Positional arg for `report nw EGP`
+4. `--name` / `--symbol` option aliases for ID-based commands
+
+Which of these would you like me to tackle?
 
 ---
 

@@ -65,12 +65,12 @@ public class CommandsConfig {
         return Command.builder()
                 .name("asset fetch")
                 .description("Fetch asset data")
-                .help("Fetch asset data. Usage: `asset fetch --category <asset-category> --exchange EGX`")
+                .help("Fetch asset data. Usage: `asset fetch stock EGX` or `asset fetch --category stock --exchange EGX`")
                 .options(CommandOption.with()
                         .shortName('c')
                         .longName("category")
                         .type(String.class)
-                        .required(true)
+                        .required(false)
                         .build(),
                         CommandOption.with()
                                 .shortName('e')
@@ -79,16 +79,16 @@ public class CommandsConfig {
                                 .required(false)
                                 .build())
                 .execute(ctx -> {
-                    String category = getOptionOrError(ctx, 'c', "category", "<category> option is missing");
+                    String category = argOrOption(ctx, 0, 'c', "category");
+                    if (category == null) throw new IllegalArgumentException(required("category"));
                     AssetCategory assetCategory = AssetCategory.fromString(category);
 
                     if (assetCategory != AssetCategory.STOCK && assetCategory != AssetCategory.ETF && assetCategory != AssetCategory.MUTUAL_FUND) {
                         throw new IllegalArgumentException("Unsupported category: " + category + ". Use stock, etf, or fund.");
                     }
-                    String exchange = getOptionOrError(ctx, 'e', "exchange", "<exchange> option is missing");
+                    String exchange = argOrOption(ctx, 1, 'e', "exchange");
+                    if (exchange == null) throw new IllegalArgumentException(required("exchange"));
                     assetService.syncAssetData(StockExchange.fromString(exchange), assetCategory);
-
-
                 });
     }
 
@@ -97,17 +97,17 @@ public class CommandsConfig {
         return Command.builder()
                 .name("asset register")
                 .description("Register a new asset")
-                .help("Register a new asset. Usage: `asset register --name \"Commercial International Bank\" --symbol COMI.CA` \nNon-interactive: `asset register --name \"Gold\" --symbol XAU --category commodity`")
+                .help("Register a new asset. Usage: `asset register \"Commercial International Bank\" COMI.CA` or `asset register --name \"Bank\" --symbol BNK`")
                 .options(CommandOption.with()
                                 .shortName('n')
                                 .longName("name")
-                                .required(true)
+                                .required(false)
                                 .type(String.class)
                                 .build(),
                         CommandOption.with()
                                 .shortName('s')
                                 .longName("symbol")
-                                .required(true)
+                                .required(false)
                                 .type(String.class)
                                 .build(),
                         CommandOption.with()
@@ -119,9 +119,10 @@ public class CommandsConfig {
                 .exitStatusExceptionMapper(exceptionMapper())
                 .availabilityProvider(availabilityProvider())
                 .execute(ctx -> {
-                    String usage = "Usage: `asset register --name \"Commercial International Bank\" --symbol COMI.CA`";
-                    String assetName = getOptionOrError(ctx, 'n', "name", "<name> option is missing. \n" + usage);
-                    String symbol = getOptionOrError(ctx, 's', "symbol", "<name> option is missing. \n" + usage);
+                    String assetName = argOrOption(ctx, 0, 'n', "name");
+                    if (assetName == null) throw new IllegalArgumentException(required("name"));
+                    String symbol = argOrOption(ctx, 1, 's', "symbol");
+                    if (symbol == null) throw new IllegalArgumentException(required("symbol"));
                     String categoryArg = getOptionOrDefault(ctx, 'c', "category", null);
 
                     String assetCategory;
@@ -310,7 +311,7 @@ public class CommandsConfig {
         return Command.builder()
                 .name("account delete")
                 .description("Delete an account")
-                .help("Delete an account. Usage: `account delete --account-id <id>`")
+                .help("Delete an account. Usage: `account delete 5` or `account delete --account-id 5`")
                 .options(CommandOption.with()
                         .shortName('a')
                         .longName("account-id")
@@ -320,8 +321,7 @@ public class CommandsConfig {
                 .exitStatusExceptionMapper(exceptionMapper())
                 .availabilityProvider(availabilityProvider())
                 .execute(ctx -> {
-                    String usage = "Usage: `account delete --account-id <id>`";
-                    String accountIdStr = getOptionOrDefault(ctx, 'a', "account-id", null);
+                    String accountIdStr = argOrOption(ctx, 0, 'a', "account-id");
 
                     if (accountIdStr == null) {
                         List<SelectItem> accountChoices = accountService.getAllAccounts().stream()
@@ -633,7 +633,7 @@ public class CommandsConfig {
         return Command.builder()
                 .name("ingest")
                 .description("Ingest transactions from a file")
-                .help("Ingest transactions from a file. Usage: `ingest --source HSBC_APP --file-path /path/to/transactions.csv`")
+                .help("Ingest transactions from a file. Usage: `ingest HSBC_APP /path/to/transactions.csv` or `ingest --source HSBC_APP --file-path /path/to/transactions.csv`")
                 .availabilityProvider(availabilityProvider())
                 .exitStatusExceptionMapper(exceptionMapper())
 
@@ -641,19 +641,21 @@ public class CommandsConfig {
                         CommandOption.with()
                                 .shortName('f')
                                 .longName("file-path")
-                                .required(true)
+                                .required(false)
                                 .type(String.class)
                                 .build(),
                         CommandOption.with()
                                 .shortName('s')
                                 .longName("source")
-                                .required(true)
+                                .required(false)
                                 .type(String.class)
                                 .build()
                 )
                 .execute(ctx -> {
-                    String filePath = getOptionOrError(ctx, 'f', "file-path", "<file-path> option is missing. Usage: `ingest --source HSBC_APP --file-path /path/to/transactions.csv`");
-                    String source = getOptionOrError(ctx, 's', "source", "<source> option is missing. Usage : `ingest --source HSBC_APP --file-path /path/to/transactions.csv`");
+                    String source = argOrOption(ctx, 0, 's', "source");
+                    if (source == null) throw new IllegalArgumentException(required("source"));
+                    String filePath = argOrOption(ctx, 1, 'f', "file-path");
+                    if (filePath == null) throw new IllegalArgumentException(required("file-path"));
                     try {
                         ingestionService.ingestTransactions(source, filePath, ctx);
                     } catch (IOException e) {
@@ -667,25 +669,26 @@ public class CommandsConfig {
         return Command.builder()
                 .name("rule add")
                 .description("Add a new ingestion rule")
-                .help("Add a new ingestion rule. Usage: `rule add --pattern \"regex\" --target <account-number> ` and then follow the prompts to create a new rule.")
+                .help("Add a new ingestion rule. Usage: `rule add \"regex\" 5` or `rule add --pattern \"regex\" --target 5`")
                 .options(CommandOption.with()
                                 .shortName('p')
                                 .longName("pattern")
-                                .required(true)
+                                .required(false)
                                 .type(String.class)
                                 .build(),
                         CommandOption.with()
                                 .shortName('t')
                                 .longName("target")
-                                .required(true)
+                                .required(false)
                                 .type(String.class)
                                 .build())
                 .availabilityProvider(availabilityProvider())
                 .exitStatusExceptionMapper(exceptionMapper())
                 .execute(ctx -> {
-                    String usage = "Usage: `rule add --pattern \"regex\" --target <account-number> ` and then follow the prompts to create a new rule.";
-                    String match = getOptionOrError(ctx, 'p', "pattern", "<match> option is missing. \n" + usage);
-                    String target = getOptionOrError(ctx, 't', "target", "<target> option is missing. \n" + usage);
+                    String match = argOrOption(ctx, 0, 'p', "pattern");
+                    if (match == null) throw new IllegalArgumentException(required("pattern"));
+                    String target = argOrOption(ctx, 1, 't', "target");
+                    if (target == null) throw new IllegalArgumentException(required("target"));
 
                     ingestionRuleService.addRule(new RuleCreateDto(
                             match,
@@ -699,18 +702,18 @@ public class CommandsConfig {
         return Command.builder()
                 .name("quote set")
                 .description("Set the latest price for an asset")
-                .help("Set the latest price for an asset. Usage: `quote set --base <asset-code> --quote <asset-code> --price 100 --date 2024-01-01`")
+                .help("Set the latest price for an asset. Usage: `quote set USD EGP --price 48.5` or `quote set --base USD --quote EGP --price 48.5`")
                 .options(
                         CommandOption.with()
                                 .shortName('b')
                                 .longName("base")
-                                .required(true)
+                                .required(false)
                                 .type(String.class)
                                 .build(),
                         CommandOption.with()
                                 .shortName('q')
                                 .longName("quote")
-                                .required(true)
+                                .required(false)
                                 .type(String.class)
                                 .build(),
                         CommandOption.with()
@@ -729,10 +732,11 @@ public class CommandsConfig {
                 .availabilityProvider(availabilityProvider())
                 .exitStatusExceptionMapper(exceptionMapper())
                 .execute(ctx -> {
-                    String usage = "Usage: `quote set --base <asset-code> --quote <asset-code> --price 100 --date 2024-01-01`";
-                    String baseSymbol = getOptionOrError(ctx, 'b', "base", "<base> option is missing. \n" + usage);
-                    String quoteSymbol = getOptionOrError(ctx, 'q', "quote", "<quote> option is missing. \n" + usage);
-                    String price = getOptionOrError(ctx, 'p', "price", "<price> option is missing. \n" + usage);
+                    String baseSymbol = argOrOption(ctx, 0, 'b', "base");
+                    if (baseSymbol == null) throw new IllegalArgumentException(required("base"));
+                    String quoteSymbol = argOrOption(ctx, 1, 'q', "quote");
+                    if (quoteSymbol == null) throw new IllegalArgumentException(required("quote"));
+                    String price = getOptionOrError(ctx, 'p', "price", required("price"));
                     String date = getOptionOrDefault(ctx, 'd', "date", null);
                     marketQuoteService.setMarketQuote(new MarketQuoteDto(
                             baseSymbol,
@@ -748,27 +752,28 @@ public class CommandsConfig {
         return Command.builder()
                 .name("quote get")
                 .description("Get the latest price for an asset")
-                .help("Get the latest price for an asset. Usage: `quote get --base <asset-code> --quote <asset-code>`")
+                .help("Get the latest price for an asset. Usage: `quote get AAPL USD` or `quote get --base AAPL --quote USD`")
                 .options(
                         CommandOption.with()
                                 .shortName('b')
                                 .longName("base")
-                                .required(true)
+                                .required(false)
                                 .type(String.class)
                                 .build(),
                         CommandOption.with()
                                 .shortName('q')
                                 .longName("quote")
-                                .required(true)
+                                .required(false)
                                 .type(String.class)
                                 .build()
                 )
                 .availabilityProvider(availabilityProvider())
                 .exitStatusExceptionMapper(exceptionMapper())
                 .execute(ctx -> {
-                    String usage = "Usage: `quote get --base <asset-code> --quote <asset-code>`";
-                    String baseSymbol = getOptionOrError(ctx, 'b', "base", "<base> option is missing. \n" + usage);
-                    String quoteSymbol = getOptionOrError(ctx, 'q', "quote", "<quote> option is missing. \n" + usage);
+                    String baseSymbol = argOrOption(ctx, 0, 'b', "base");
+                    if (baseSymbol == null) throw new IllegalArgumentException(required("base"));
+                    String quoteSymbol = argOrOption(ctx, 1, 'q', "quote");
+                    if (quoteSymbol == null) throw new IllegalArgumentException(required("quote"));
 
                     List<MarketQuoteDto> marketQuotes = marketQuoteService.getMarketQuote(baseSymbol, quoteSymbol);
                     marketQuotes.forEach(quote -> ctx.outputWriter().println("Price of " + quote.baseSymbol() + " in " + quote.quoteSymbol() + " is " + quote.price() + " (as of " + quote.marketQuoteDate() + ")"));
@@ -780,27 +785,28 @@ public class CommandsConfig {
         return Command.builder()
                 .name("quote fetch")
                 .description("Fetch the latest quote from Yahoo Finance and save it")
-                .help("Fetch the latest quote from Yahoo Finance and save it. Usage: `quote fetch --base AAPL --quote USD`")
+                .help("Fetch the latest quote from Yahoo Finance and save it. Usage: `quote fetch AAPL USD` or `quote fetch --base AAPL --quote USD`")
                 .options(
                         CommandOption.with()
                                 .shortName('b')
                                 .longName("base")
-                                .required(true)
+                                .required(false)
                                 .type(String.class)
                                 .build(),
                         CommandOption.with()
                                 .shortName('q')
                                 .longName("quote")
-                                .required(true)
+                                .required(false)
                                 .type(String.class)
                                 .build()
                 )
                 .availabilityProvider(availabilityProvider())
                 .exitStatusExceptionMapper(exceptionMapper())
                 .execute(ctx -> {
-                    String usage = "Usage: `quote fetch --base <asset-symbol> --quote <asset-symbol>`";
-                    String baseSymbol = getOptionOrError(ctx, 'b', "base", "<base> option is missing. \n" + usage);
-                    String quoteSymbol = getOptionOrError(ctx, 'q', "quote", "<quote> option is missing. \n" + usage);
+                    String baseSymbol = argOrOption(ctx, 0, 'b', "base");
+                    if (baseSymbol == null) throw new IllegalArgumentException(required("base"));
+                    String quoteSymbol = argOrOption(ctx, 1, 'q', "quote");
+                    if (quoteSymbol == null) throw new IllegalArgumentException(required("quote"));
 
                     marketQuoteService.fetchAndSaveQuote(baseSymbol, quoteSymbol);
                     ctx.outputWriter().println("Saved quote: " + baseSymbol + " -> " + quoteSymbol);
@@ -847,13 +853,7 @@ public class CommandsConfig {
                 .availabilityProvider(availabilityProvider())
                 .exitStatusExceptionMapper(exceptionMapper())
                 .execute(ctx -> {
-                    var args = ctx.parsedInput().arguments();
-                    String currency;
-                    if (!args.isEmpty()) {
-                        currency = args.getFirst().value();
-                    } else {
-                        currency = getOptionOrDefault(ctx, 'c', "currency", "EGP");
-                    }
+                    String currency = argOrOption(ctx, 0, 'c', "currency", "EGP");
 
                     NetworthReport report = reportService.generateNetworthReport(currency);
                     printReportInTerminal(report);
@@ -887,7 +887,7 @@ public class CommandsConfig {
         return Command.builder()
                 .name("audit account")
                 .description("Audit an account — verify computed balance")
-                .help("Audit an account. Usage: `audit account --id <id>` or `--name <name>`")
+                .help("Audit an account. Usage: `audit account 5` or `audit account --id 5` or `--name \"Foo\"`")
                 .options(
                         CommandOption.with()
                                 .shortName('i')
@@ -905,15 +905,29 @@ public class CommandsConfig {
                 .availabilityProvider(availabilityProvider())
                 .exitStatusExceptionMapper(exceptionMapper())
                 .execute(ctx -> {
-                    String idStr = getOptionOrDefault(ctx, 'i', "id", null);
-                    String name = getOptionOrDefault(ctx, 'n', "name", null);
-
-                    Long accountId;
-                    if (idStr != null) {
-                        accountId = Long.valueOf(idStr);
-                    } else if (name != null) {
-                        accountId = accountService.getAccountByName(name).getId();
+                    // try positional arg first (as ID), then --id, then --name
+                    var args = ctx.parsedInput().arguments();
+                    Long accountId = null;
+                    if (!args.isEmpty()) {
+                        String raw = args.getFirst().value();
+                        // if it looks like a number, treat as ID
+                        if (raw.matches("\\d+")) {
+                            accountId = Long.valueOf(raw);
+                        } else {
+                            // treat as name
+                            accountId = accountService.getAccountByName(raw).getId();
+                        }
                     } else {
+                        String idStr = getOptionOrDefault(ctx, 'i', "id", null);
+                        String name = getOptionOrDefault(ctx, 'n', "name", null);
+                        if (idStr != null) {
+                            accountId = Long.valueOf(idStr);
+                        } else if (name != null) {
+                            accountId = accountService.getAccountByName(name).getId();
+                        }
+                    }
+
+                    if (accountId == null) {
                         List<SelectItem> choices = accountService.getAllAccounts().stream()
                                 .map(a -> SelectItem.of(
                                         a.getName() + " (ID: " + a.getId() + ")",
@@ -949,7 +963,7 @@ public class CommandsConfig {
         return Command.builder()
                 .name("hmc init")
                 .description("Initialize an account with an opening balance (system adjustment)")
-                .help("Initialize an account with an opening balance. Usage: `hmc init --account \"HSBC Current Account\" --balance 50000` or `hmc init --account-id 5 --balance 50000`")
+                .help("Initialize an account with an opening balance. Usage: `hmc init \"HSBC Current\" --balance 50000` or `hmc init --account \"HSBC Current\" --balance 50000`")
                 .options(
                         CommandOption.with()
                                 .shortName('a')
@@ -973,16 +987,16 @@ public class CommandsConfig {
                 .availabilityProvider(availabilityProvider())
                 .exitStatusExceptionMapper(exceptionMapper())
                 .execute(ctx -> {
-                    String name = getOptionOrDefault(ctx, 'a', "account", null);
+                    String name = argOrOption(ctx, 0, 'a', "account");
                     String idStr = getOptionOrDefault(ctx, 'i', "account-id", null);
-                    String balance = getOptionOrError(ctx, 'b', "balance", "<balance> option is missing.");
+                    String balance = getOptionOrError(ctx, 'b', "balance", required("balance"));
 
                     if (idStr != null) {
                         systemAdjustmentService.initAccount(Long.valueOf(idStr), new BigDecimal(balance));
                     } else if (name != null) {
                         systemAdjustmentService.initAccount(name, new BigDecimal(balance));
                     } else {
-                        throw new IllegalArgumentException("Either --account <name> or --account-id <id> is required.");
+                        throw new IllegalArgumentException("Either --account <name>, --account-id <id>, or a positional account name is required.");
                     }
 
                     ctx.outputWriter().println("Opening balance of " + balance + " posted.");
@@ -994,7 +1008,7 @@ public class CommandsConfig {
         return Command.builder()
                 .name("hmc reconcile")
                 .description("Reconcile an account's computed balance with the actual balance")
-                .help("Reconcile an account. Usage: `hmc reconcile --account \"HSBC Current Account\" --actual 49990` or `hmc reconcile --account-id 5 --actual 49990`")
+                .help("Reconcile an account. Usage: `hmc reconcile \"HSBC Current\" --actual 49990` or `hmc reconcile --account \"HSBC Current\" --actual 49990`")
                 .options(
                         CommandOption.with()
                                 .shortName('a')
@@ -1018,16 +1032,16 @@ public class CommandsConfig {
                 .availabilityProvider(availabilityProvider())
                 .exitStatusExceptionMapper(exceptionMapper())
                 .execute(ctx -> {
-                    String name = getOptionOrDefault(ctx, 'a', "account", null);
+                    String name = argOrOption(ctx, 0, 'a', "account");
                     String idStr = getOptionOrDefault(ctx, 'i', "account-id", null);
-                    String actual = getOptionOrError(ctx, 'c', "actual", "<actual> option is missing.");
+                    String actual = getOptionOrError(ctx, 'c', "actual", required("actual"));
 
                     if (idStr != null) {
                         systemAdjustmentService.reconcileAccount(Long.valueOf(idStr), new BigDecimal(actual));
                     } else if (name != null) {
                         systemAdjustmentService.reconcileAccount(name, new BigDecimal(actual));
                     } else {
-                        throw new IllegalArgumentException("Either --account <name> or --account-id <id> is required.");
+                        throw new IllegalArgumentException("Either --account <name>, --account-id <id>, or a positional account name is required.");
                     }
 
                     ctx.outputWriter().println("Reconciled to actual balance " + actual);
@@ -1125,6 +1139,26 @@ public class CommandsConfig {
 
     private boolean isOptionValid(CommandOption option) {
         return option != null && option.value() != null && !option.value().isBlank();
+    }
+
+    private String argOrOption(CommandContext ctx, int argIndex, char shortName, String longName) {
+        var args = ctx.parsedInput().arguments();
+        if (argIndex < args.size()) {
+            return args.get(argIndex).value();
+        }
+        return getOptionOrDefault(ctx, shortName, longName, null);
+    }
+
+    private String argOrOption(CommandContext ctx, int argIndex, char shortName, String longName, String defaultVal) {
+        var args = ctx.parsedInput().arguments();
+        if (argIndex < args.size()) {
+            return args.get(argIndex).value();
+        }
+        return getOptionOrDefault(ctx, shortName, longName, defaultVal);
+    }
+
+    private String required(String label) {
+        return "<" + label + "> is required.";
     }
 
     private static String assetSymbol(Account account) {

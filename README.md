@@ -1,395 +1,411 @@
 # HameedMoneyCLI
 
-A personal finance CLI tool for ingesting CSV exports from Egyptian banks and brokers (HSBC, Banque Misr, Thndr), normalising them into a double-entry ledger, and generating net worth reports. Built with Spring Boot 4 + Spring Shell 4 + Java 21.
+> A double-entry personal finance ledger for the command line. Ingest CSV exports from any bank or investment platform, normalise into a transaction log, and generate multi-currency reports.
+
+Built with **Spring Boot 4 + Spring Shell 4 + Java 21**, powered by **PostgreSQL**, and **yfinance** for free stock/forex quotes.
 
 ---
 
-## Philosophy: The Financial Data Lake
+## Philosophy: Bring Your Own Bank
 
-The core idea is to treat the system as a **data normaliser**:
+HameedMoneyCLI is a **data normalisation framework**, not a bank-specific tool. The system provides the ledger, the double-entry engine, and the reporting — **you** provide the ingestion strategy for your bank, broker, or investment app.
 
-- **Input:** Messy CSV exports from different institutions (HSBC Egypt, Thndr, manual logs).
-- **Processing:** Source-specific parsers turn every row into a normalised double-entry transaction, with regex-based rules auto-categorising descriptions into target accounts.
-- **Storage:** Transactions are stored in a ledger for historical analysis. No balances are stored — everything is derived from the transaction log.
-- **Output:** Reports for net worth, cash flow, and portfolio performance, with multi-currency valuation via a graph-based oracle.
+```
+[HSBC Statement]  ──►  HSBC Strategy  ──┐
+[Thndr Statement] ──►  Thndr Strategy  ──┤
+[Your Bank]       ──►  Your Strategy   ──┤
+[Mint/Intuit]     ──►  Mint Strategy   ──┘
+                                           ▼
+                                     Normalised
+                                    Double-Entry
+                                       Ledger
+                                           │
+                                           ▼
+                                    ┌──────────────┐
+                                    │ Net Worth    │
+                                    │ Cash Flow    │
+                                    │ Portfolio    │
+                                    │ Data Health  │
+                                    └──────────────┘
+```
+
+- **Input:** Messy CSV exports from any source — banks, brokers, crypto exchanges, manual logs.
+- **Processing:** You write (or pick from built-in) source-specific parsers. Each row becomes a normalised double-entry transaction. Regex rules auto-categorise descriptions into target accounts.
+- **Storage:** Transactions live in a ledger. **No balances are stored** — everything is derived from the transaction log. This makes the system audit-proof by design.
+- **Output:** Reports for net worth, cash flow, and portfolio performance. Multi-currency valuation via a graph-based oracle.
+
+Built-in parsers: `HSBC_APP`, `BANQUE_MISR_APP`, `THNDR_APP`. Add your own by implementing the `IngestionStrategy` interface.
+
+---
+
+## Quick Start (5 minutes)
+
+```bash
+# 1. Start the app (schema + seed data load automatically)
+./mvnw spring-boot:run
+
+# 2. Register a cash asset
+asset register "Egyptian Pound" EGP --category cash
+
+# 3. Create your account and post an opening balance in one shot
+account init --name "My Wallet" --asset EGP --balance 5000
+
+# 4. Set a market quote
+quote set EGP USD --price 0.020
+
+# 5. See your net worth
+report nw EGP
+```
 
 ---
 
 ## Core Concepts
 
-### Account Hierarchy (Root / Parent / Leaf)
+### 1. Account Classification
 
-Accounts form a pure organisational tree (like folders on a filesystem). The `asset_id` column is **nullable**:
+Accounts are divided into two functional realms:
 
-| Level | `asset_id` | Role |
-|-------|-----------|------|
-| **Root** | `NULL` | Top-level group by master type: `ASSET`, `LIABILITY`, `INCOME`, `EXPENSE`, `SYSTEM` |
-| **Parent** | `NULL` | Organisational folder (e.g. "Cash", "Securities", "Thndr Portfolio") — aggregates child balances |
-| **Leaf** | set | The actual account where money lives (e.g. "HSBC Current Account" → `EGP`, "CIB Stock" → `COMI.CA`) |
+**Internal Accounts (The "Vault")** — what you own and owe. These are the components of your net worth.
 
-Only leaf accounts hold an asset and can appear in transactions. Parent accounts are unit-less containers — their "balance" is computed on the fly by summing leaf children and converting to the report currency.
+| Type | Examples |
+|------|----------|
+| **ASSET** | Cash, bank accounts, investment portfolios, stocks, an apartment |
+| **LIABILITY** | Loans, credit card balances |
+
+**External Accounts (The "World")** — the origins and destinations of your money. These track **flow**, not balance.
+
+| Type | Examples |
+|------|----------|
+| **INCOME** | Salary, bonuses, dividends |
+| **EXPENSE** | Groceries, subscriptions, food, pocket money |
+
+**External accounts cannot receive a transfer from another External account** — money always flows between Internal and External (or between two Internal accounts). This ensures the ledger cleanly separates "what you have" from "where it comes from and goes to."
+
+A third technical type exists for internal plumbing:
+
+| Type | Purpose |
+|------|---------|
+| **SYSTEM** | Opening balances and reconciliation adjustments — ignored in cash flow reports |
+
+### 2. The Transaction Framework (Source → Destination)
+
+Every entry in the `transaction` table follows the rule:
 
 ```
-AccountIs
-├── ASSET
-│   ├── Cash (Internal)
-│   │   ├── HSBC Current Account (EGP)
-│   │   ├── Misr Current Account (EGP)
-│   │   └── Thndr Investment Account (EGP)
-│   ├── Securities (Internal)
-│   │   ├── Thndr Portfolio   (folder)
-│   │   │   ├── CIB Stock     (COMI.CA)
-│   │   │   └── Abu Qir       (ABUK.CA)
-│   │   └── Etoro Portfolio   (folder)
-│   ├── Fixed (Internal)
-│   │   └── Property
-│   └── Debt
-├── LIABILITY
-│   └── Loan Account
-├── INCOME
-│   ├── Basic Salary
-│   └── Bonus
-├── EXPENSE
-│   ├── Food
-│   ├── Groceries
-│   ├── Subscriptions
-│   ├── PocketMoney
-│   ├── MobileRecharge
-│   ├── Family
-│   ├── Charity
-│   └── Lending
-└── SYSTEM
-    ├── Opening EGP Balance
-    ├── EGP Balance Increase Adjustment
-    └── EGP Balance Decrease Adjustment
+From Account  →  To Account
 ```
 
-Each asset in the system gets its own trio of SYSTEM accounts to provide consistent balancing units for opening balances and reconciliation adjustments. These are created automatically when a leaf account with that asset is first created (see [System Adjustments](#system-adjustments)).
-
-### Internal vs External Accounts
-
-Accounts are divided into two realms:
-
-| Realm | Types | Purpose |
-|-------|-------|---------|
-| **Internal** (The Vault) | `ASSET`, `LIABILITY` | What you own and owe — components of **net worth** |
-| **External** (The World) | `INCOME`, `EXPENSE` | Origins and destinations of money — track **flow**, not balance |
-| **System** | `SYSTEM` | Opening balances and reconciliation adjustments — ignored in cash flow reports |
-
-**PocketMoney rule:** Cash withdrawn from an ATM is treated as an **Expense** (External). Once money leaves the tracked banking system, it is considered spent — the physical cash is not tracked digitally.
-
-### The Source-Destination Transaction Model
-
-Every transaction is a movement of value from one account to another:
+The effect on each account's balance depends on its master type:
 
 | Transaction Type | From (Source) | To (Destination) | Effect |
 |-----------------|---------------|------------------|--------|
-| **Income** | Income (External) | Asset (Internal) | Net worth increases |
-| **Spending** | Asset (Internal) | Expense (External) | Net worth decreases |
-| **Internal Transfer** | Asset A (Internal) | Asset B (Internal) | Net worth unchanged |
-| **Cash Out** | Asset (Internal) | PocketMoney (External) | Net worth decreases (treated as spending) |
+| **Income** | External (Income) | Internal (Asset) | Both increase. You earned more income, and your bank balance grew. |
+| **Spending** | Internal (Asset) | External (Expense) | Asset decreases, Expense increases. Your bank balance dropped, and your total spending grew. |
+| **Internal Transfer** | Internal (Asset A) | Internal (Asset B) | Asset A decreases, Asset B increases. Net worth stays the same (e.g. moving money between accounts). |
+| **Cash Out** | Internal (Asset) | External (PocketMoney) | Asset decreases, Expense increases. Money left the tracked system. |
 
-### Derived Balance Strategy
+**System Adjustments** follow the same Source → Destination pattern:
 
-Balances are **never stored**. They are computed from the transaction ledger on demand. This makes the system audit-proof — deleting or editing a transaction automatically updates all reports without risk of desync.
+| Transaction | From | To | Effect |
+|------------|------|----|--------|
+| **Opening balance** | SYSTEM | Asset | Asset increases (net worth ↑) |
+| **Reconciliation (up)** | SYSTEM | Asset | Asset increases (net worth ↑) |
+| **Reconciliation (down)** | Asset | SYSTEM | Asset decreases (net worth ↓) |
 
-The formula depends on the account's `master_type`:
+### 3. Balance Derivation
+
+Balances are **never stored** — they are computed from the transaction log on demand. This makes the system audit-proof: deleting or editing a transaction automatically updates all reports.
+
+The formula depends on the master type:
 
 | Master Type | Balance Formula | Logic |
-|------------|----------------|-------|
-| `ASSET` | `∑to_amount - ∑from_amount` | Money in increases wealth |
-| `EXPENSE` | `∑to_amount - ∑from_amount` | Money in increases total spending |
-| `LIABILITY` | `∑from_amount - ∑to_amount` | Borrowing (money out) increases debt |
-| `INCOME` | `∑from_amount - ∑to_amount` | Earning (money out) increases income |
-| `SYSTEM` | `∑from_amount - ∑to_amount` | Same direction as Liability/Income |
+|-------------|----------------|-------|
+| **ASSET** | `∑to_amount − ∑from_amount` | Money coming in (debit) increases your wealth |
+| **EXPENSE** | `∑to_amount − ∑from_amount` | Money coming in increases your total spending |
+| **LIABILITY** | `∑from_amount − ∑to_amount` | Money leaving (credit) increases your debt |
+| **INCOME** | `∑from_amount − ∑to_amount` | Money leaving increases your total income |
+| **SYSTEM** | `∑from_amount − ∑to_amount` | Same logic as Liability/Income |
+
+This maps directly to the extended accounting equation:
+
+```
+Assets + Expenses = Liabilities + Equity + Income
+```
+
+Accounts on the **left side** (ASSET, EXPENSE) increase with debits (money flowing **to** them). Accounts on the **right side** (LIABILITY, INCOME) increase with credits (money flowing **from** them). Every transaction preserves this balance — the sum of all debits always equals the sum of all credits.
+
+### 4. The PocketMoney Rule
+
+Cash withdrawn from an ATM is treated as an **Expense** (External). Once money leaves the tracked banking system, it is considered spent — the physical cash is not tracked digitally. In reports, you won't look at the "Balance" of PocketMoney to see how much cash you have; you will look at the **total inflow** to PocketMoney to see how much untracked cash you've used this month.
+
+### 5. Reporting Impact
+
+These classifications directly feed every report:
+
+| Report | What it computes | Formula |
+|--------|-----------------|---------|
+| **Net Worth** | Wealth snapshot | `∑(ASSET balances) − ∑(LIABILITY balances)`, all converted to target currency |
+| **Cash Flow** | Income vs Expenses | `∑(Income outflows) − ∑(Expense inflows)` for a period. System adjustments excluded |
+| **Portfolio** | Investment growth | Market price vs buy price per stock |
+| **Data Integrity** | Ledger health | `1 − (manualAdjustments / totalVolume)` — higher is better |
+
+### Accounts are hierarchical
+
+| Level | `asset_id` | Role |
+|-------|-----------|------|
+| **Root** | `NULL` | Top-level by master type (`ASSET`, `LIABILITY`, `INCOME`, `EXPENSE`, `SYSTEM`) |
+| **Parent** | `NULL` | Organisational folder — aggregates child balances |
+| **Leaf** | set | The actual account where money lives. Only leaf accounts appear in transactions |
+
+Example tree:
+
+```
+ASSET
+├── Cash
+│   ├── HSBC Current Account (EGP)
+│   ├── Checking Account (USD)
+│   └── Interactive Brokers (USD)
+├── Securities
+│   ├── Thndr Portfolio
+│   │   ├── CIB Stock (COMI.CA)
+│   │   └── EFG Hermes (EFGH.CA)
+│   └── Robinhood
+│       ├── Apple (AAPL)
+│       └── VOO (VOO)
+└── Real Estate
+    └── My Apartment (APT)
+```
 
 ### System Adjustments
 
-Opening balances and reconciliation corrections use the `is_system_adjustment` flag on transactions. This keeps cash flow reports clean:
+Opening balances and reconciliation corrections use the `is_system_adjustment` flag. Each asset gets a **dedicated trio of SYSTEM accounts**, ensuring every leg uses the same denomination:
 
-- **Net worth report:** includes system adjustments (the money is in your account).
-- **Income/Expense report:** filters system adjustments out (your opening balance won't appear as "income").
-
-Each asset used in the ledger gets a dedicated trio of SYSTEM accounts. They are auto-created when a leaf account referencing that asset is first created (via `account create`). The naming convention is:
-
-| Symbol | Opening Balance | Increase Adjustment | Decrease Adjustment |
-|--------|----------------|---------------------|---------------------|
+| Asset | Opening Balance | Increase | Decrease |
+|-------|----------------|----------|----------|
 | `EGP` | `Opening EGP Balance` | `EGP Balance Increase Adjustment` | `EGP Balance Decrease Adjustment` |
-| `COMI` | `Opening COMI Balance` | `COMI Balance Increase Adjustment` | `COMI Balance Decrease Adjustment` |
+| `COMI.CA` | `Opening COMI.CA Balance` | `COMI.CA Balance Increase Adjustment` | `COMI.CA Balance Decrease Adjustment` |
 
-This ensures every transaction leg uses the same unit (e.g. opening EGP cash uses `Opening EGP Balance`, opening COMI shares uses `Opening COMI Balance`), so account balances are always mathematically meaningful.
+These are auto-created when a leaf account referencing that asset is first created.
 
 **Workflow:**
+```bash
+# Initialize an account
+hmc init "HSBC Current" --balance 50000
+  → Opening EGP Balance (SYSTEM) → HSBC Current Account (ASSET)
 
-1. **Initialise an account:**
-   `hmc init --account "HSBC" --balance 50000`
-    → Creates a transaction: `Opening EGP Balance (SYSTEM)` → `HSBC Current Account (ASSET)` with `is_system_adjustment = TRUE`
+# Reconcile a discrepancy
+hmc reconcile "HSBC Current" --actual 49990
+  → HSBC Current Account (ASSET) → EGP Balance Decrease Adjustment (SYSTEM)
+```
 
-2. **Reconcile a difference:**
-   `hmc reconcile --account "HSBC" --actual 49990`
-    → Creates a transaction: `HSBC Current Account (ASSET)` → `EGP Balance Decrease Adjustment (SYSTEM)` with `is_system_adjustment = TRUE`
+System adjustments are the **only** way to post opening balances and corrections. They are filtered out of income/expense reports automatically.
 
-### Universal Graph Oracle (Multi-Currency Valuation)
+### The Graph Oracle (Multi-Currency Valuation)
 
-The system treats asset valuation as a **graph traversal** problem:
+Valuation is a **graph traversal** problem:
 
 - **Nodes:** Every `Asset` (EGP, USD, AAPL, Gold) is a node.
-- **Edges:** `market_quote` records are directed edges with a price weight (e.g. USD → EGP = 48.5).
-- **Triangulation:** To value AAPL in EGP, the engine finds a path: AAPL → USD → EGP, multiplying edge weights along the way.
-- **Identity edges:** An asset always converts to itself at 1:1.
-- **Inverse edges:** If USD→EGP = 48.5, the reverse EGP→USD = 1/48.5 is derived automatically.
+- **Edges:** `market_quote` records are directed price edges (USD → EGP = 48.5).
+- **Identity:** An asset always converts to itself at 1:1.
+- **Inverse:** If USD→EGP = 48.5, then EGP→USD ≈ 1/48.5 is derived automatically.
+- **Traversal:** BFS finds the shortest path between any two assets (e.g. AAPL → USD → EGP) and multiplies edge weights.
 
-The FinancialOracle uses BFS to find the shortest conversion path between any two assets, enabling fully multi-currency net worth reports.
+This powers fully multi-currency net worth reports: you can hold USD stocks, EGP cash, and a EUR-denominated property and see everything converted to a single currency.
 
 ### Idempotency
 
-Each transaction is assigned an `external_ref_id` — a SHA-256 hash of `sourceSystemCode|date|description|amount`. Running `ingest` multiple times on the same file produces **zero duplicates**.
+Every transaction gets an `external_ref_id` — a SHA-256 hash of `sourceSystemCode|date|description|amount`. Running `ingest` multiple times on the same file produces **zero duplicates**.
 
 ---
 
-## Getting Started
+## Setup
 
 ### Prerequisites
 
-- Java 21+
-- PostgreSQL (create a database matching `application.properties`)
-- Python 3 + [`yfinance`](https://pypi.org/project/yfinance/) (`pip install yfinance`) for market quote fetching via `quote fetch`
-- (Optional) [TwelveData](https://twelvedata.com) API key — only needed if you set `hmc.market.data.provider.default=twelvedata` (see [Market Data Provider](#market-data-provider))
-- (Optional) [EODHD](https://eodhd.com) API key — set `EODHD_API_KEY` in `.env` (pre-configured, only needed if the default key is exhausted)
+- **Java 21+**
+- **PostgreSQL** — create a database (default: `jdbc:postgresql://localhost:5432/hmc-db`)
+- **Python 3 + yfinance** — `pip install yfinance` (for `quote fetch`)
+- **(Optional) EODHD API key** — set `EODHD_API_KEY` in `.env` if the default key is exhausted
+- **(Optional) TwelveData API key** — set `TWELVE_DATA_API_KEY` in `.env` if you switch providers
 
-### Setup
+### Configuration
 
-```bash
-# 1. Start the application (schema and seed data load automatically)
-./mvnw spring-boot:run
-```
+Key properties in `src/main/resources/application.properties`:
 
-On first launch, the schema (`app_data` schema, 6 tables) and seed data (assets, accounts, source systems, sample rules) are loaded from `src/main/resources/db/init.sql`.
+| Property | Default | Description |
+|----------|---------|-------------|
+| `spring.datasource.url` | `jdbc:postgresql://localhost:5432/hmc-db` | Database connection |
+| `spring.datasource.username` | `hmc-user` | Database user |
+| `spring.datasource.password` | `hmc-password` | Database password |
+| `spring.datasource.hikari.schema` | `app_data` | Database schema |
+| `hmc.report.output-dir` | `~/hmc/reports` | CSV export directory |
+| `hmc.market.data.provider.default` | `eodhd` | Provider for `asset fetch` (`eodhd` or `twelvedata`) |
 
-### Typical Workflow
-
-```
-1. Sync tradable instruments   ──►  asset fetch
-2. Register manual assets      ──►  asset register [--category <cat>]
-3. Create accounts             ──►  account create / account init (creates + opening balance)
-4. Set up opening balances     ──►  hmc init (or step 3 with account init)
-5. Set market quotes for FX    ──►  quote fetch / quote set
-6. Import CSV exports          ──►  ingest
-7. Create rules for uncategorised  ──►  rule add
-8. Run reports                 ──►  report nw
-```
+Schema and seed data load automatically on first launch from `src/main/resources/db/init.sql`.
 
 ---
 
-## General Onboarding Walkthrough
+## Walkthrough: Your First Position
 
-Setting up a new position in the ledger follows this general flow:
+Let's add a real stock position and see your net worth.
 
-```
-asset fetch / asset register  →  account create  →  hmc init (opening balance)  →  quote fetch / quote set  →  report nw
-```
-
-### Step 1: Sync tradable instruments from the provider
+### 1. Fetch available instruments
 
 ```bash
-asset fetch --category stock --exchange NASDAQ
-asset fetch --category etf --exchange LSE
+asset fetch stock EGX
 ```
 
-This pulls listed stocks/ETFs/funds from the configured market data provider (EODHD or TwelveData) and stores them in the `asset` table with their ISIN, currency, and exchange metadata.
+Pulls all EGX-listed stocks from the market data provider. Supported categories: `stock`, `etf`, `fund`. Supported exchanges: `EGX`, `NASDAQ`, `NYSE`, `LSE`, `TSE`, `HKEX`, `ASX`, `TSX`, `BSE`, `NSE`, `TADAWUL`, `ADX`, `DFM`, `QE`, `EURONEXT`, `SSE`, `FWB`, `SIX`, `KRX`, `JPX`.
 
-Supported exchanges: EGX, NASDAQ, NYSE, LSE, TSE, HKEX, ASX, TSX, BSE, NSE, TADAWUL, ADX, DFM, QE, EURONEXT, SSE, FWB, SIX, KRX, JPX.
+> **Manual registration:** For instruments not on the exchange list:
+> ```bash
+> asset register "My Fund" MYFUND --category fund
+> ```
 
-### Step 2: Manually register assets not found by the provider
-
-Some instruments — particularly mutual funds, local closed-end funds, or OTC securities — may not appear in the provider's exchange-symbol-list. Register them manually:
+### 2. Create an account
 
 ```bash
-asset register --name "Some Mutual Fund" --symbol XYZ
+account create --name "CIB Shares" --parent-account-id 5
 ```
 
-Prompts for category — choose from `stock`, `etf`, `fund`, `cash`, `crypto`, `commodity`.
+Launches an interactive wizard for account type (choose `ASSET`) and asset (pick `COMI.CA`).
 
-### Step 3: Create a leaf account
+> **One-shot shortcut:**
+> ```bash
+> account init --name "CIB Shares" --asset COMI.CA --balance 100
+> ```
+> Registers the asset if missing, creates the account + SYSTEM trio, and posts the opening balance in a single command.
+
+### 3. Set a market quote
 
 ```bash
-account create --name "XYZ Fund Account" --parent-account-id <parent-id>
+quote fetch COMI.CA EGP
 ```
 
-Prompts for:
-- **Account Type** — typically `ASSET` for investment positions
-- **Asset** — the registered asset to denominate this account
+Yahoo symbol construction:
 
-This automatically creates a SYSTEM account trio for the asset (if one doesn't already exist):
-- `Opening <symbol> Balance`
-- `<symbol> Balance Increase Adjustment`
-- `<symbol> Balance Decrease Adjustment`
+| Direction | Pattern | Example |
+|-----------|---------|---------|
+| Stock → Cash | `{symbol}` + exchange suffix | `COMI.CA` |
+| Cash → Cash | `{base}{quote}=X` | `USDEGP=X` |
+| Crypto → Cash | `{symbol}-{currency}` | `BTC-USD` |
+| Commodity → Cash | `{symbol}=F` | `GC=F` |
 
-### Step 4: Record the opening balance
+For manual assets:
+```bash
+quote set MYASSET EGP --price 50000 --date 2025-01-15
+```
+
+### 4. Run the net worth report
 
 ```bash
-hmc init --account "XYZ Fund Account" --balance 1000
+report nw EGP
 ```
 
-This creates a `SYSTEM_ADJUSTMENT` transaction from the asset's `Opening <symbol> Balance` account to the leaf account with `is_system_adjustment = TRUE`, keeping it out of income/expense reports. The SYSTEM account is automatically resolved from the leaf account's asset.
+Converts every leaf balance to the target currency and prints total assets, total liabilities, and net worth.
 
-### Step 5: Set a market quote
-
-For securities, fetch from Yahoo Finance automatically:
+### 5. Import CSV exports
 
 ```bash
-quote fetch --base XYZ --quote USD
+ingest HSBC_APP ~/Downloads/transactions.csv
 ```
 
-For assets without a Yahoo Finance listing (or for manual valuation), set the price directly:
-
-```bash
-quote set --base XYZ --quote USD --price 12.50 --date 2025-01-15
-```
-
-### Step 6: Generate the net worth report
-
-```bash
-report nw -c USD
-```
-
-The report converts every leaf balance to the target currency via the FinancialOracle graph and prints `totalAssets`, `totalLiabilities`, and `netWorth`.
+The pipeline:
+1. Parse rows with a source-specific strategy
+2. Match descriptions against regex rules for auto-categorisation
+3. Deduplicate via SHA-256 hash
+4. Prompt interactively for unmatched descriptions to create new rules
 
 ---
 
-## Commands
+## Command Reference
 
 ### Asset Management
 
-| Command | Description |
-|---------|-------------|
-| `cat-list` | List all available asset categories |
+| Command | What it does |
+|---------|--------------|
+| `cat-list` | List all asset categories |
 | `asset list` | List all registered assets |
-| `asset register --name <name> --symbol <symbol> [--category <cat>]` | Register a new asset. Without `--category`, prompts interactively. Categories: `stock`, `etf`, `fund`, `cash`, `crypto`, `commodity` |
-| `asset fetch --category <category> --exchange <exchange>` | Sync instrument listings from the configured data provider. Categories: `stock`, `etf`, `fund`. Supported exchanges: EGX, NASDAQ, NYSE, LSE, TSE, HKEX, ASX, TSX, BSE, NSE, TADAWUL, ADX, DFM, QE, EURONEXT, SSE, FWB, SIX, KRX, JPX |
+| `asset register <name> <symbol> [--category <cat>]` | Register a new asset (prompts for category if omitted) |
+| `asset fetch <category> <exchange>` | Sync instruments from the market data provider |
 
 ### Account Management
 
-| Command | Description |
-|---------|-------------|
-| `account list` | List all accounts in a colour-coded hierarchical tree, grouped by master type |
-| `account create --name <name> --parent-account-id <id>` (or `--parent-account-name <name>`) | Create an account (prompts for account type and asset; leave asset blank for folder accounts) |
-| `account init --name <name> --asset <symbol> --balance <amount> [--parent-account-id <id>] [--category <cat>]` | One-shot: registers the asset if missing, creates the leaf account (+ SYSTEM trio), and posts the opening balance |
+| Command | What it does |
+|---------|--------------|
+| `account list` | Display the colour-coded account tree |
+| `account create --name <n> [--parent-account-id <id>] [--parent-account-name <n>]` | Create an account (interactive type/asset pickers) |
+| `account init --name <n> --asset <symbol> --balance <amt> [--parent-account-id] [--category]` | One-shot: create account + SYSTEM trio + post opening balance |
+| `account delete <id>` | Delete an account (checks FK dependencies) |
 
 ### Transaction Management
 
-| Command | Description |
-|---------|-------------|
-| `transaction add -F <from-id> -T <to-id> -a <amount> -d <date>` | Add a transaction (prompts for type). Use `-a` for equal amounts, or `-f`/`-t` for different amounts |
-| `transaction list [-T <type>] [-f <from>] [-t <to>] [-s <start>] [-e <end>]` | List/filter transactions in a formatted table |
-| `transaction report [-T <type>] [-f <from>] [-t <to>] [-s <start>] [-e <end>]` | Export filtered transactions to CSV at `~/hmc/reports/` |
+| Command | What it does |
+|---------|--------------|
+| `transaction add -F <from-id> -T <to-id> -a <amount> -d <date>` | Add a transaction (use `-N`/`-M` for names instead of IDs) |
+| `transaction list [-T <type>] [-f <from>] [-t <to>] [-s <start>] [-e <end>]` | List/filter transactions |
+| `transaction report [-T <type>] [-f <from>] [-t <to>] [-s <start>] [-e <end>]` | Export to CSV (`~/hmc/reports/`) |
 
 **`transaction add` options:**
 
-| Flag | Long Name | Required | Description |
-|------|-----------|----------|-------------|
-| `-a` | `--amount` | No | Same amount for both sides (alternative to -f/-t) |
-| `-f` | `--from-amount` | No | Amount leaving the source |
-| `-t` | `--to-amount` | No | Amount entering the destination |
-| `-d` | `--date` | Yes | Date (dd-MM-yyyy) |
-| `-D` | `--description` | No | Description |
-| `-F` | `--from-account-id` | No* | Source account ID |
-| `-T` | `--to-account-id` | No* | Destination account ID |
-| `-N` | `--from-account-name` | No* | Source account name (alternative to `-F`) |
-| `-M` | `--to-account-name` | No* | Destination account name (alternative to `-T`) |
-| `-e` | `--fee-amount` | No | Fee (default: 0) |
+| Flag | Long | Required | Description |
+|------|------|----------|-------------|
+| `-a` | `--amount` | No | Same amount both sides |
+| `-f` / `-t` | `--from-amount` / `--to-amount` | No* | Amount leaving / entering |
+| `-d` | `--date` | No | Defaults to today |
+| `-D` | `--description` | No | Free text |
+| `-F` / `-T` | `--from-account-id` / `--to-account-id` | No* | By ID |
+| `-N` / `-M` | `--from-account-name` / `--to-account-name` | No* | By name |
+| `-e` | `--fee-amount` | No | Default 0 |
 
-\* Either `-F`/`-T` (by ID) or `-N`/`-M` (by name) must be provided for each side.
+\* Either the ID or name flag must be provided for each side.
 
-### Ingestion
+### Ingestion & Rules
 
-| Command | Description |
-|---------|-------------|
-| `ingest -s <source> -f <file-path>` | Parse and import a CSV file from a supported source |
+| Command | What it does |
+|---------|--------------|
+| `ingest <source> <file-path>` | Parse and import a CSV file |
+| `rule add <pattern> <target-id>` | Add a regex rule for auto-categorisation |
 
-**Supported sources:** `HSBC_APP`, `BANQUE_MISR_APP`, `THNDR_APP`
-
-CSV rows are parsed by source-specific strategies, matched against regex ingestion rules for auto-categorisation, and deduplicated via SHA-256 hash. Unmatched descriptions trigger an interactive prompt to create new rules.
-
-### Ingestion Rules
-
-| Command | Description |
-|---------|-------------|
-| `rule add --pattern <regex> --target <account-id>` | Add a regex rule for auto-categorising transaction descriptions |
-
-Rules are evaluated in priority order. When a description matches, the transaction is routed to the target account.
+Built-in sources: `HSBC_APP`, `BANQUE_MISR_APP`, `THNDR_APP`. Add your own by implementing `IngestionStrategy`.
 
 ### Market Quotes
 
-| Command | Description |
-|---------|-------------|
-| `quote list` | List the latest stored quote for each asset pair |
-| `quote fetch --base <symbol> --quote <symbol>` | Auto-fetch latest price via Python [`yfinance`](https://pypi.org/project/yfinance/) (free, no API key). Handles stocks, forex, crypto, and commodities |
-| `quote set --base <symbol> --quote <symbol> --price <value> [--date <date>]` | Manually store a market quote (e.g. USD→EGP = 48.5) |
-| `quote get --base <symbol> --quote <symbol>` | Retrieve stored quotes for an asset pair |
+| Command | What it does |
+|---------|--------------|
+| `quote fetch <base> <quote>` | Auto-fetch price from Yahoo Finance |
+| `quote set <base> <quote> --price <v> [--date <d>]` | Store a manual quote |
+| `quote get <base> <quote>` | Retrieve stored quotes |
+| `quote list` | List the latest quote for every pair |
 
-**Valid `quote fetch` directions:**
+**Exchange suffixes** (used by `quote fetch` for securities):
 
-| Base → Quote | Yahoo Symbol | Example |
-|---|---|---|
-| STOCK / ETF / FUND → CASH | `{exchange symbol}` + exchange suffix | `COMI.CA` (EGX), `AAPL` (NASDAQ) |
-| CASH → CASH | `{base}{quote}=X` | `USDEGP=X` |
-| CRYPTO → CASH | `{symbol}-{currency}` | `BTC-USD` |
-| COMMODITY → CASH | `{symbol}=F` | `GC=F` (gold) |
-
-For stocks, ETFs, and mutual funds, the Yahoo symbol is constructed from the asset symbol + the exchange's Yahoo suffix.
-The suffix is determined by looking up `asset.metadata.exchange` (from `asset fetch`) in the `StockExchange` enum:
-
-| Exchange | Yahoo Suffix | Example Symbols |
-|----------|-------------|----------------|
-| EGX | `.CA` | COMI.**CA**, ABUK.**CA** |
-| NASDAQ / NYSE | *(none)* | AAPL, MSFT |
-| LSE (London) | `.L` | HSBA.**L** |
-| TSE (Tokyo) | `.T` | 7203.**T** |
-| HKEX (Hong Kong) | `.HK` | 0700.**HK** |
-| ASX (Australia) | `.AX` | BHP.**AX** |
-| TSX (Toronto) | `.TO` | SHOP.**TO** |
-| BSE (India) | `.BO` | RELIANCE.**BO** |
-| NSE (India) | `.NS` | RELIANCE.**NS** |
-| TADAWUL (Saudi) | `.SR` | 2222.**SR** |
-| ADX / DFM (UAE) | `.AE` | EMAAR.**AE** |
-| QE (Qatar) | `.QA` | QNBK.**QA** |
-| EURONEXT | `.PA` | MC.**PA** |
-| SSE (Shanghai) | `.SS` | 600519.**SS** |
-| FWB (Frankfurt) | `.DE` | SAP.**DE** |
-| SIX (Swiss) | `.SW` | NESN.**SW** |
-| KRX (Korea) | `.KS` | 005930.**KS** |
-| JPX (Japan) | `.T` | 9984.**T** |
-
-If the symbol already ends with the correct suffix (as TwelveData returns them), no duplication occurs.
-Manually registered stocks without exchange metadata fall back to the bare symbol. Invalid directions (e.g. CASH → STOCK, STOCK → STOCK, PROPERTY → anything) are rejected with a suggestion.
-
-### Reporting
-
-| Command | Description |
-|---------|-------------|
-| `report nw [-c <currency>]` | Generate a net worth / balance sheet report valued in the given currency (defaults to EGP). `report nw` works without flags |
-| `report data-integrity` | Generate a data integrity audit report showing opening balance totals, manual adjustments, and system health % |
-
-The net worth report:
-1. Finds all leaf accounts (ASSET and LIABILITY types).
-2. Computes balances from the transaction ledger.
-3. Converts all balances to the target currency via the FinancialOracle graph.
-4. Prints `totalAssets`, `totalLiabilities`, and `netWorth`.
-
-### Audit
-
-| Command | Description |
-|---------|-------------|
-| `audit account --id <id>` or `--name <name>` | Audit a specific account — displays computed balance, transaction count, and date range. Omitting both flags opens an interactive picker |
-| `audit trail` | Full ledger audit — checks all leaf accounts for anomalies (negative ASSET balances, orphaned transactions) |
+| Exchange | Suffix | Exchange | Suffix |
+|----------|--------|----------|--------|
+| EGX | `.CA` | BSE / NSE | `.BO` / `.NS` |
+| NASDAQ / NYSE | *(none)* | TADAWUL | `.SR` |
+| LSE | `.L` | ADX / DFM | `.AE` |
+| TSE | `.T` | QE (Qatar) | `.QA` |
+| HKEX | `.HK` | EURONEXT | `.PA` |
+| ASX | `.AX` | SSE | `.SS` |
+| TSX | `.TO` | FWB / SIX | `.DE` / `.SW` |
+| | | KRX / JPX | `.KS` / `.T` |
 
 ### System Adjustments
 
-| Command | Description |
-|---------|-------------|
-| `hmc init --account <name> --balance <amount>` | Initialize a leaf account with an opening balance. Creates a SYSTEM_ADJUSTMENT transaction from the asset's `Opening <symbol> Balance` account |
-| `hmc reconcile --account <name> --actual <amount>` | Reconcile a leaf account's computed balance to the given actual. Creates an increase or decrease SYSTEM_ADJUSTMENT transaction as needed |
+| Command | What it does |
+|---------|--------------|
+| `hmc init <account-name> --balance <amount>` | Post an opening balance |
+| `hmc reconcile <account-name> --actual <amount>` | Fix a balance discrepancy |
+
+### Reporting & Audit
+
+| Command | What it does |
+|---------|--------------|
+| `report nw [<currency>]` | Net worth report (defaults to EGP) |
+| `report data-integrity` | Ledger health check |
+| `audit account [<id-or-name>]` | Audit a single account |
+| `audit trail` | Full ledger audit |
 
 ---
 
@@ -397,36 +413,21 @@ The net worth report:
 
 | Report | What it computes | Formula |
 |--------|-----------------|---------|
-| **Net Worth** | Wealth snapshot | `∑(Internal Asset balances) - ∑(Internal Liability balances)`, all converted to target currency via the Oracle graph |
-| **Cash Flow** | Income vs Expenses | `∑(Income outflows) - ∑(Expense inflows)` for a period. System adjustments are excluded |
-| **Portfolio** | Investment growth | Buy price vs market price per stock, with currency devaluation impact separated |
-| **Data Integrity** | System health | `1 - (totalAdjustments / totalVolume)` — measures what fraction of the ledger is manual system corrections vs normal activity |
+| **Net Worth** | Wealth snapshot | `∑(ASSET balances) - ∑(LIABILITY balances)`, all converted to target currency |
+| **Cash Flow** | Income vs Expenses | `∑(Income outflows) - ∑(Expense inflows)` for a period |
+| **Portfolio** | Investment growth | Market price vs buy price per stock |
+| **Data Integrity** | Ledger health | `1 - (manualAdjustments / totalVolume)` |
 
 ---
 
 ## Configuration
 
-Key properties in `src/main/resources/application.properties`:
+### Profiles
 
-| Property | Description |
-|----------|-------------|
-| `spring.datasource.url` | PostgreSQL JDBC URL (`jdbc:postgresql://localhost:5432/hmc-db`) |
-| `spring.datasource.username` | DB username (`hmc-user`) |
-| `spring.datasource.password` | DB password (`hmc-password`) |
-| `spring.datasource.hikari.schema` | DB schema (`app_data`) |
-| `hmc.report.output-dir` | CSV report output directory (default: `~/hmc/reports`) |
-| `hmc.market.data.provider.default` | Market data provider: `eodhd` (default) or `twelvedata` |
-| `hmc.market.data.provider.eodhd.api-key` | EODHD API key — set via `EODHD_API_KEY` env var or `.env` |
-| `hmc.market.data.provider.twelve-data.api-key` | TwelveData API key for stock listings — set via `TWELVE_DATA_API_KEY` env var |
+- **default / eodhd** — Fetches stocks, ETFs, and funds from EODHD. Set `EODHD_API_KEY` in `.env`.
+- **twelvedata** — Fetches stocks only. Set `TWELVE_DATA_API_KEY` in `.env`.
 
-### Market Data Provider
-
-`asset fetch` uses a pluggable `MarketDataProvider` interface. The active provider is selected via `hmc.market.data.provider.default` in `application.properties`:
-
-- **`eodhd`** (default) — fetches stocks, ETFs, and mutual funds from EODHD. Set `EODHD_API_KEY` in `.env`.
-- **`twelvedata`** — fetches stocks only from TwelveData. Requires `TWELVE_DATA_API_KEY` env var.
-
-To switch providers:
+Switch with:
 ```properties
 hmc.market.data.provider.default=twelvedata
 ```
@@ -437,39 +438,39 @@ hmc.market.data.provider.default=twelvedata
 
 ```
 src/main/java/org/hameed/hameedmoneycli/
-├── commands/        # Spring Shell command definitions
+├── commands/        # Spring Shell commands
 ├── config/          # Spring beans, RestClient, strategy wiring
 ├── enums/           # AccountType, AssetCategory, SourceSystemCode, StockExchange, TransactionType
-├── ingestion/       # CSV parsing helpers and regex rule pattern factory
+├── ingestion/       # CSV parsing helpers + regex rule factory
 ├── model/
-│   ├── dto/         # Request/response DTOs
+│   ├── dto/         # Request/response DTOs and report records
 │   └── entity/      # JPA entities (Account, Asset, Transaction, MarketQuote, etc.)
 ├── proxy/           # Market data providers (EODHD, TwelveData) + Yahoo Finance
 ├── repository/      # Spring Data JPA repositories
 ├── service/         # Business logic layer
-└── util/            # Ingestion strategy interface + implementations
+└── util/            # Ingestion strategy interface + built-in implementations
 ```
 
-### Database Tables
+### Database (6 tables)
 
-| Table | Purpose |
-|-------|---------|
+| Table | Role |
+|-------|------|
 | `asset` | Master list of financial instruments and currencies |
-| `account` | Hierarchical accounts (self-referencing parent_id, nullable asset_id) |
-| `source_system` | Data import sources (HSBC, Banque Misr, Thndr, Manual) |
-| `transaction` | Double-entry ledger (source-destination with separate amounts and fees) |
-| `ingestion_rule` | Regex patterns mapping descriptions to target accounts |
-| `market_quote` | FX rates and stock prices for the FinancialOracle graph |
+| `account` | Hierarchical accounts (self-referencing `parent_id`, nullable `asset_id`) |
+| `source_system` | Data import sources |
+| `transaction` | Double-entry ledger |
+| `ingestion_rule` | Regex patterns for auto-categorisation |
+| `market_quote` | FX rates and security prices for the Oracle graph |
 
 ---
 
 ## Building
 
 ```bash
-./mvnw clean package              # Build executable JAR
-./mvnw -Pnative native:compile    # Build native image (requires GraalVM)
+./mvnw clean package              # Executable JAR
+./mvnw -Pnative native:compile    # Native image (requires GraalVM)
 ```
 
 ---
 
-*Design documentation is available in `hmc-docs/` for deeper dives into specific topics.*
+*Design documentation lives in `hmc-docs/` for deeper dives into specific topics.*

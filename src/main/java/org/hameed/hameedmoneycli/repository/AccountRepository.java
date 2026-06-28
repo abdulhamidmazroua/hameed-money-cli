@@ -20,4 +20,6 @@ public interface AccountRepository extends JpaRepository<Account, Long> {
     boolean existsByParent_Id(Long parentId);
 
     boolean existsByAsset_IdAndMasterType(Long assetId, AccountType masterType);
+
+    List<Account> findByMasterType(AccountType masterType);
 }

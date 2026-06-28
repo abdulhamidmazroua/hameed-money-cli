@@ -129,8 +129,6 @@ This ensures every transaction leg uses the same unit (e.g. opening EGP cash use
    `hmc reconcile --account "HSBC" --actual 49990`
     → Creates a transaction: `HSBC Current Account (ASSET)` → `EGP Balance Decrease Adjustment (SYSTEM)` with `is_system_adjustment = TRUE`
 
-*These commands are part of the design spec; implementation status may vary.*
-
 ### Universal Graph Oracle (Multi-Currency Valuation)
 
 The system treats asset valuation as a **graph traversal** problem:
@@ -188,7 +186,7 @@ On first launch, the schema (`app_data` schema, 6 tables) and seed data (assets,
 Setting up a new position in the ledger follows this general flow:
 
 ```
-asset fetch / asset register  →  account create  →  transaction add (opening balance)  →  quote fetch / quote set  →  report nw
+asset fetch / asset register  →  account create  →  hmc init (opening balance)  →  quote fetch / quote set  →  report nw
 ```
 
 ### Step 1: Sync tradable instruments from the provider
@@ -230,10 +228,10 @@ This automatically creates a SYSTEM account trio for the asset (if one doesn't a
 ### Step 4: Record the opening balance
 
 ```bash
-transaction add --amount <quantity> --from-account-id <system-account-id> --to-account-id <leaf-account-id> \
-    --description "Opening balance for XYZ"
+hmc init --account "XYZ Fund Account" --balance 1000
 ```
-Select `SYSTEM_ADJUSTMENT` as the transaction type. The source is the asset's SYSTEM opening account, the destination is the leaf account.
+
+This creates a `SYSTEM_ADJUSTMENT` transaction from the asset's `Opening <symbol> Balance` account to the leaf account with `is_system_adjustment = TRUE`, keeping it out of income/expense reports. The SYSTEM account is automatically resolved from the leaf account's asset.
 
 ### Step 5: Set a market quote
 
@@ -409,12 +407,27 @@ Manually registered stocks without exchange metadata fall back to the bare symbo
 | Command | Description |
 |---------|-------------|
 | `report nw --currency <currency>` | Generate a net worth / balance sheet report valued in the given currency |
+| `report data-integrity` | Generate a data integrity audit report showing opening balance totals, manual adjustments, and system health % |
 
 The net worth report:
 1. Finds all leaf accounts (ASSET and LIABILITY types).
 2. Computes balances from the transaction ledger.
 3. Converts all balances to the target currency via the FinancialOracle graph.
 4. Prints `totalAssets`, `totalLiabilities`, and `netWorth`.
+
+### Audit
+
+| Command | Description |
+|---------|-------------|
+| `audit account --id <id>` or `--name <name>` | Audit a specific account — displays computed balance, transaction count, and date range. Omitting both flags opens an interactive picker |
+| `audit trail` | Full ledger audit — checks all leaf accounts for anomalies (negative ASSET balances, orphaned transactions) |
+
+### System Adjustments
+
+| Command | Description |
+|---------|-------------|
+| `hmc init --account <name> --balance <amount>` | Initialize a leaf account with an opening balance. Creates a SYSTEM_ADJUSTMENT transaction from the asset's `Opening <symbol> Balance` account |
+| `hmc reconcile --account <name> --actual <amount>` | Reconcile a leaf account's computed balance to the given actual. Creates an increase or decrease SYSTEM_ADJUSTMENT transaction as needed |
 
 ---
 
@@ -425,7 +438,7 @@ The net worth report:
 | **Net Worth** | Wealth snapshot | `∑(Internal Asset balances) - ∑(Internal Liability balances)`, all converted to target currency via the Oracle graph |
 | **Cash Flow** | Income vs Expenses | `∑(Income outflows) - ∑(Expense inflows)` for a period. System adjustments are excluded |
 | **Portfolio** | Investment growth | Buy price vs market price per stock, with currency devaluation impact separated |
-| **Data Integrity** | Ledger health | Count of uncategorised vs auto-matched transactions, adjustment volume |
+| **Data Integrity** | System health | `1 - (totalAdjustments / totalVolume)` — measures what fraction of the ledger is manual system corrections vs normal activity |
 
 ---
 

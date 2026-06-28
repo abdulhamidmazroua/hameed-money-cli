@@ -58,6 +58,11 @@ public class AccountService {
                 .orElseThrow(() -> new IllegalArgumentException("Account with ID " + id + " not found"));
     }
 
+    public Account getAccountByName(String name) {
+        return accountRepository.findByNameIgnoreCase(name)
+                .orElseThrow(() -> new IllegalArgumentException("Account with name '" + name + "' not found"));
+    }
+
     public void deleteAccount(Long id) {
         Account account = getAccountById(id);
 

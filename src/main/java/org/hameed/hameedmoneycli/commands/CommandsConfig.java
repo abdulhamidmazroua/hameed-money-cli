@@ -40,6 +40,8 @@ public class CommandsConfig {
     private final IngestionRuleService ingestionRuleService;
     private final MarketQuoteService marketQuoteService;
     private final ReportService reportService;
+    private final AuditService auditService;
+    private final SystemAdjustmentService systemAdjustmentService;
 
     // Assets and Accounts
 
@@ -710,7 +712,7 @@ public class CommandsConfig {
     }
 
     @Bean
-    public Command report() {
+    public Command reportNetworth() {
         return Command.builder()
                 .name("report nw")
                 .description("Generate balance sheet net worth report valued in a specific currency")
@@ -734,6 +736,180 @@ public class CommandsConfig {
                 });
     }
 
+    @Bean
+    public Command reportDataIntegrity() {
+        return Command.builder()
+                .name("report data-integrity")
+                .description("Generate a data integrity audit report")
+                .help("Generate a data integrity audit report. Usage: `report data-integrity`")
+                .availabilityProvider(availabilityProvider())
+                .exitStatusExceptionMapper(exceptionMapper())
+                .execute(ctx -> {
+                    DataIntegrityReport report = reportService.generateDataIntegrityReport();
+                    ctx.outputWriter().println("--- Data Integrity Report ---");
+
+                    printSection(ctx, "Opening Balances", report.openingBalances());
+                    printSection(ctx, "Balance Increase Adjustments", report.increaseAdjustments());
+                    printSection(ctx, "Balance Decrease Adjustments", report.decreaseAdjustments());
+
+                    ctx.outputWriter().println();
+                    ctx.outputWriter().printf("System Health: %.1f%%%n",
+                            report.systemHealth().multiply(BigDecimal.valueOf(100)));
+                });
+    }
+
+    @Bean
+    public Command auditAccount() {
+        return Command.builder()
+                .name("audit account")
+                .description("Audit an account — verify computed balance")
+                .help("Audit an account. Usage: `audit account --id <id>` or `--name <name>`")
+                .options(
+                        CommandOption.with()
+                                .shortName('i')
+                                .longName("id")
+                                .required(false)
+                                .type(String.class)
+                                .build(),
+                        CommandOption.with()
+                                .shortName('n')
+                                .longName("name")
+                                .required(false)
+                                .type(String.class)
+                                .build()
+                )
+                .availabilityProvider(availabilityProvider())
+                .exitStatusExceptionMapper(exceptionMapper())
+                .execute(ctx -> {
+                    String idStr = getOptionOrDefault(ctx, 'i', "id", null);
+                    String name = getOptionOrDefault(ctx, 'n', "name", null);
+
+                    Long accountId;
+                    if (idStr != null) {
+                        accountId = Long.valueOf(idStr);
+                    } else if (name != null) {
+                        accountId = accountService.getAccountByName(name).getId();
+                    } else {
+                        List<SelectItem> choices = accountService.getAllAccounts().stream()
+                                .map(a -> SelectItem.of(
+                                        a.getName() + " (ID: " + a.getId() + ")",
+                                        a.getId().toString()))
+                                .toList();
+                        ComponentFlow.ComponentFlowResult result = componentFlowBuilder.clone().reset()
+                                .withSingleItemSelector("accountId")
+                                .name("Select account to audit:")
+                                .selectItems(choices)
+                                .and().build().run();
+                        accountId = Long.valueOf(result.getContext().get("accountId", String.class));
+                    }
+
+                    ctx.outputWriter().println(auditService.auditAccount(accountId));
+                });
+    }
+
+    @Bean
+    public Command auditTrail() {
+        return Command.builder()
+                .name("audit trail")
+                .description("Full ledger audit — verify data integrity across all accounts")
+                .help("Run a full ledger audit. Usage: `audit trail`")
+                .availabilityProvider(availabilityProvider())
+                .exitStatusExceptionMapper(exceptionMapper())
+                .execute(ctx -> {
+                    ctx.outputWriter().println(auditService.auditTrail());
+                });
+    }
+
+    @Bean
+    public Command hmcInit() {
+        return Command.builder()
+                .name("hmc init")
+                .description("Initialize an account with an opening balance (system adjustment)")
+                .help("Initialize an account with an opening balance. Usage: `hmc init --account \"HSBC Current Account\" --balance 50000` or `hmc init --account-id 5 --balance 50000`")
+                .options(
+                        CommandOption.with()
+                                .shortName('a')
+                                .longName("account")
+                                .required(false)
+                                .type(String.class)
+                                .build(),
+                        CommandOption.with()
+                                .shortName('i')
+                                .longName("account-id")
+                                .required(false)
+                                .type(String.class)
+                                .build(),
+                        CommandOption.with()
+                                .shortName('b')
+                                .longName("balance")
+                                .required(true)
+                                .type(String.class)
+                                .build()
+                )
+                .availabilityProvider(availabilityProvider())
+                .exitStatusExceptionMapper(exceptionMapper())
+                .execute(ctx -> {
+                    String name = getOptionOrDefault(ctx, 'a', "account", null);
+                    String idStr = getOptionOrDefault(ctx, 'i', "account-id", null);
+                    String balance = getOptionOrError(ctx, 'b', "balance", "<balance> option is missing.");
+
+                    if (idStr != null) {
+                        systemAdjustmentService.initAccount(Long.valueOf(idStr), new BigDecimal(balance));
+                    } else if (name != null) {
+                        systemAdjustmentService.initAccount(name, new BigDecimal(balance));
+                    } else {
+                        throw new IllegalArgumentException("Either --account <name> or --account-id <id> is required.");
+                    }
+
+                    ctx.outputWriter().println("Opening balance of " + balance + " posted.");
+                });
+    }
+
+    @Bean
+    public Command hmcReconcile() {
+        return Command.builder()
+                .name("hmc reconcile")
+                .description("Reconcile an account's computed balance with the actual balance")
+                .help("Reconcile an account. Usage: `hmc reconcile --account \"HSBC Current Account\" --actual 49990` or `hmc reconcile --account-id 5 --actual 49990`")
+                .options(
+                        CommandOption.with()
+                                .shortName('a')
+                                .longName("account")
+                                .required(false)
+                                .type(String.class)
+                                .build(),
+                        CommandOption.with()
+                                .shortName('i')
+                                .longName("account-id")
+                                .required(false)
+                                .type(String.class)
+                                .build(),
+                        CommandOption.with()
+                                .shortName('c')
+                                .longName("actual")
+                                .required(true)
+                                .type(String.class)
+                                .build()
+                )
+                .availabilityProvider(availabilityProvider())
+                .exitStatusExceptionMapper(exceptionMapper())
+                .execute(ctx -> {
+                    String name = getOptionOrDefault(ctx, 'a', "account", null);
+                    String idStr = getOptionOrDefault(ctx, 'i', "account-id", null);
+                    String actual = getOptionOrError(ctx, 'c', "actual", "<actual> option is missing.");
+
+                    if (idStr != null) {
+                        systemAdjustmentService.reconcileAccount(Long.valueOf(idStr), new BigDecimal(actual));
+                    } else if (name != null) {
+                        systemAdjustmentService.reconcileAccount(name, new BigDecimal(actual));
+                    } else {
+                        throw new IllegalArgumentException("Either --account <name> or --account-id <id> is required.");
+                    }
+
+                    ctx.outputWriter().println("Reconciled to actual balance " + actual);
+                });
+    }
+
 
     public void printReportInTerminal(Report report) {
         Field[] fileds = report.getClass().getDeclaredFields();
@@ -747,6 +923,16 @@ public class CommandsConfig {
             }
         }
 
+    }
+
+    private void printSection(CommandContext ctx, String title, DataIntegrityReport.Section section) {
+        ctx.outputWriter().println("  " + title + ":");
+        ctx.outputWriter().println("    Total Count: " + section.count());
+        ctx.outputWriter().println("    Total " + title + ":");
+        for (DataIntegrityReport.AssetLine line : section.breakdown()) {
+            ctx.outputWriter().printf("      %s %s%n", line.amount().stripTrailingZeros().toPlainString(), line.symbol());
+        }
+        ctx.outputWriter().println();
     }
 
     private String formatCamelCaseToTitle(String camelCase) {

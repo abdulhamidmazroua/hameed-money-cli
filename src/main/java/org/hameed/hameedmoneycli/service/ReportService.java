@@ -3,19 +3,24 @@ package org.hameed.hameedmoneycli.service;
 import lombok.RequiredArgsConstructor;
 import org.hameed.hameedmoneycli.enums.AccountType;
 import org.hameed.hameedmoneycli.enums.AssetCategory;
+import org.hameed.hameedmoneycli.model.dto.DataIntegrityReport;
 import org.hameed.hameedmoneycli.model.dto.NetworthReport;
 import org.hameed.hameedmoneycli.model.entity.Account;
 import org.hameed.hameedmoneycli.model.entity.Asset;
 import org.hameed.hameedmoneycli.model.entity.FinancialOracle;
+import org.hameed.hameedmoneycli.model.entity.Transaction;
 import org.hameed.hameedmoneycli.repository.AccountRepository;
 import org.hameed.hameedmoneycli.repository.AssetRepository;
 import org.hameed.hameedmoneycli.repository.TransactionRepository;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -64,5 +69,58 @@ public class ReportService {
                 totalLiabilities,
                 totalAssets.subtract(totalLiabilities)
         );
+    }
+
+    public DataIntegrityReport generateDataIntegrityReport() {
+        List<Transaction> systemAdjustments = transactionRepository.findAllSystemAdjustments();
+        BigDecimal totalVolume = transactionRepository.sumAllFromAmounts();
+
+        Map<String, BigDecimal> openingBreakdown = new HashMap<>();
+        Map<String, BigDecimal> increaseBreakdown = new HashMap<>();
+        Map<String, BigDecimal> decreaseBreakdown = new HashMap<>();
+
+        for (Transaction tx : systemAdjustments) {
+            String fromName = tx.getFromAccount().getName();
+            String toName = tx.getToAccount().getName();
+
+            if (fromName.contains("Opening ")) {
+                String symbol = tx.getToAccount().getAsset().getSymbol();
+                openingBreakdown.merge(symbol, tx.getToAmount(), BigDecimal::add);
+            } else if (fromName.contains("Increase Adjustment")) {
+                String symbol = tx.getToAccount().getAsset().getSymbol();
+                increaseBreakdown.merge(symbol, tx.getToAmount(), BigDecimal::add);
+            }
+
+            if (toName.contains("Decrease Adjustment")) {
+                String symbol = tx.getFromAccount().getAsset().getSymbol();
+                decreaseBreakdown.merge(symbol, tx.getFromAmount(), BigDecimal::add);
+            }
+        }
+
+        DataIntegrityReport.Section openingSection = buildSection(openingBreakdown);
+        DataIntegrityReport.Section increaseSection = buildSection(increaseBreakdown);
+        DataIntegrityReport.Section decreaseSection = buildSection(decreaseBreakdown);
+
+        BigDecimal totalAdjustments = openingSection.total().add(increaseSection.total()).add(decreaseSection.total());
+        BigDecimal health;
+        if (totalVolume.compareTo(BigDecimal.ZERO) == 0) {
+            health = BigDecimal.ONE;
+        } else {
+            health = BigDecimal.ONE.subtract(
+                    totalAdjustments.divide(totalVolume, 4, RoundingMode.HALF_UP)
+            );
+        }
+
+        return new DataIntegrityReport(openingSection, increaseSection, decreaseSection, health);
+    }
+
+    private DataIntegrityReport.Section buildSection(Map<String, BigDecimal> breakdown) {
+        int count = breakdown.size();
+        BigDecimal total = breakdown.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+        List<DataIntegrityReport.AssetLine> lines = breakdown.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .map(e -> new DataIntegrityReport.AssetLine(e.getKey(), e.getValue()))
+                .toList();
+        return new DataIntegrityReport.Section(count, total, lines);
     }
 }

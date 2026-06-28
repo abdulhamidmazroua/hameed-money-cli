@@ -36,7 +36,18 @@ public class FinancialOracle {
     public BigDecimal getRate(Long fromId, Long toId) {
         // Use Breadth-First Search (BFS) to find the shortest path
         // e.g., AAPL -> USD -> EGP
+        if (fromId.equals(toId)) {
+            return BigDecimal.ONE;
+        }
+
         Path path = findShortestPath(fromId, toId);
+
+        if (path.edges().isEmpty()) {
+            throw new IllegalArgumentException(
+                    "No conversion path found between asset IDs " + fromId + " and " + toId +
+                            ". Add a market quote to connect these assets."
+            );
+        }
 
         return path.edges().stream()
                 .map(Edge::price)

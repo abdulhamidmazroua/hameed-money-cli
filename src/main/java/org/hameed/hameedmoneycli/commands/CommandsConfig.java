@@ -17,7 +17,6 @@ import org.springframework.shell.jline.tui.component.flow.ComponentFlow;
 import org.springframework.shell.jline.tui.component.flow.SelectItem;
 
 import java.io.IOException;
-import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.text.DateFormat;
 import java.time.Instant;
@@ -854,9 +853,7 @@ public class CommandsConfig {
                 .exitStatusExceptionMapper(exceptionMapper())
                 .execute(ctx -> {
                     String currency = argOrOption(ctx, 0, 'c', "currency", "EGP");
-
-                    NetworthReport report = reportService.generateNetworthReport(currency);
-                    printReportInTerminal(report);
+                    reportService.generateNetworthReport(currency).terminalPrint(ctx.outputWriter());
                 });
     }
 
@@ -869,16 +866,7 @@ public class CommandsConfig {
                 .availabilityProvider(availabilityProvider())
                 .exitStatusExceptionMapper(exceptionMapper())
                 .execute(ctx -> {
-                    DataIntegrityReport report = reportService.generateDataIntegrityReport();
-                    ctx.outputWriter().println("--- Data Integrity Report ---");
-
-                    printSection(ctx, "Opening Balances", report.openingBalances());
-                    printSection(ctx, "Balance Increase Adjustments", report.increaseAdjustments());
-                    printSection(ctx, "Balance Decrease Adjustments", report.decreaseAdjustments());
-
-                    ctx.outputWriter().println();
-                    ctx.outputWriter().printf("System Health: %.1f%%%n",
-                            report.systemHealth().multiply(BigDecimal.valueOf(100)));
+                    reportService.generateDataIntegrityReport().terminalPrint(ctx.outputWriter());
                 });
     }
 
@@ -1046,48 +1034,6 @@ public class CommandsConfig {
 
                     ctx.outputWriter().println("Reconciled to actual balance " + actual);
                 });
-    }
-
-
-    public void printReportInTerminal(Report report) {
-        Field[] fileds = report.getClass().getDeclaredFields();
-        for (Field field : fileds) {
-            field.setAccessible(true);
-            try {
-                Object value = field.get(report);
-                System.out.println(field.getName() + ": " + value);
-            } catch (IllegalAccessException e) {
-                System.out.println(field.getName() + ": " + "Unable to access");
-            }
-        }
-
-    }
-
-    private void printSection(CommandContext ctx, String title, DataIntegrityReport.Section section) {
-        ctx.outputWriter().println("  " + title + ":");
-        ctx.outputWriter().println("    Total Count: " + section.count());
-        ctx.outputWriter().println("    Total " + title + ":");
-        for (DataIntegrityReport.AssetLine line : section.breakdown()) {
-            ctx.outputWriter().printf("      %s %s%n", line.amount().stripTrailingZeros().toPlainString(), line.symbol());
-        }
-        ctx.outputWriter().println();
-    }
-
-    private String formatCamelCaseToTitle(String camelCase) {
-        // also capitalize the first letter
-        StringBuilder title = new StringBuilder();
-        char[] chars = camelCase.toCharArray();
-        for (int i = 0; i < chars.length; i++) {
-            char c = chars[i];
-            if (i == 0) {
-                title.append(Character.toUpperCase(c));
-            } else if (Character.isUpperCase(c)) {
-                title.append(' ').append(c);
-            } else {
-                title.append(c);
-            }
-        }
-        return title.toString();
     }
 
 

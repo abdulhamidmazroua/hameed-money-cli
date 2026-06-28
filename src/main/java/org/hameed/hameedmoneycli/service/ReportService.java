@@ -38,36 +38,44 @@ public class ReportService {
                 .orElseThrow(() -> new IllegalArgumentException("Asset not found: " + currency));
 
         Map<Long, BigDecimal> rateCache = new HashMap<>();
+        List<NetworthReport.NetworthLine> assetLines = new ArrayList<>();
+        List<NetworthReport.NetworthLine> liabilityLines = new ArrayList<>();
 
-        BigDecimal totalAssets = accountRepository.getLeafAccounts().stream()
-                .filter(account -> account.getMasterType() == AccountType.ASSET ||
-                        account.getMasterType() == AccountType.LIABILITY)
-                .map(account -> {
-                    BigDecimal balance = transactionRepository.getAccountBalance(account.getId());
-                    BigDecimal rate = rateCache.computeIfAbsent(
-                            account.getAsset().getId(),
-                            key -> financialOracle.getRate(key, targetAsset.getId())
-                    );
-                    return balance.multiply(rate);
-                })
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalAssets = BigDecimal.ZERO;
+        BigDecimal totalLiabilities = BigDecimal.ZERO;
 
-        BigDecimal totalLiabilities = accountRepository.getLeafAccounts().stream()
-                .filter(account -> account.getMasterType() == AccountType.LIABILITY)
-                .map(account -> {
-                    BigDecimal balance = transactionRepository.getAccountBalance(account.getId());
-                    BigDecimal rate = rateCache.computeIfAbsent(
-                            account.getAsset().getId(),
-                            key -> financialOracle.getRate(key, targetAsset.getId())
-                    );
-                    return balance.multiply(rate);
-                })
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        for (Account account : accountRepository.getLeafAccounts()) {
+            if (account.getMasterType() != AccountType.ASSET && account.getMasterType() != AccountType.LIABILITY) {
+                continue;
+            }
+
+            BigDecimal balance = transactionRepository.getAccountBalance(account.getId());
+            BigDecimal rate = rateCache.computeIfAbsent(
+                    account.getAsset().getId(),
+                    key -> financialOracle.getRate(key, targetAsset.getId())
+            );
+            BigDecimal converted = balance.multiply(rate);
+
+            NetworthReport.NetworthLine line = new NetworthReport.NetworthLine(
+                    account.getName(), balance, converted, account.getAsset().getSymbol()
+            );
+
+            if (account.getMasterType() == AccountType.ASSET) {
+                assetLines.add(line);
+                totalAssets = totalAssets.add(converted);
+            } else {
+                liabilityLines.add(line);
+                totalLiabilities = totalLiabilities.add(converted);
+            }
+        }
 
         return new NetworthReport(
                 totalAssets,
                 totalLiabilities,
-                totalAssets.subtract(totalLiabilities)
+                totalAssets.subtract(totalLiabilities),
+                currency,
+                assetLines,
+                liabilityLines
         );
     }
 

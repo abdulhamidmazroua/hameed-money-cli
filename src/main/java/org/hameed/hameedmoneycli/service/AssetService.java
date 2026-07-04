@@ -3,11 +3,14 @@ package org.hameed.hameedmoneycli.service;
 import lombok.RequiredArgsConstructor;
 import org.hameed.hameedmoneycli.enums.AssetCategory;
 import org.hameed.hameedmoneycli.enums.StockExchange;
+import org.hameed.hameedmoneycli.model.AssetSpecification;
 import org.hameed.hameedmoneycli.model.dto.AssetCreateDto;
+import org.hameed.hameedmoneycli.model.dto.AssetFilter;
 import org.hameed.hameedmoneycli.model.entity.Asset;
 import org.hameed.hameedmoneycli.provider.MarketDataProvider;
 import org.hameed.hameedmoneycli.provider.MarketInstrument;
 import org.hameed.hameedmoneycli.repository.AssetRepository;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
@@ -59,6 +62,15 @@ public class AssetService {
 
     public List<Asset> getAllAssets() {
         return assetRepository.findAll();
+    }
+
+    public List<Asset> findAssets(AssetFilter filter) {
+        return assetRepository.findAll(
+                Specification
+                        .where(AssetSpecification.hasNameOrSymbolContaining(filter.keyword()))
+                        .and(AssetSpecification.hasCategory(filter.category()))
+                        .and(AssetSpecification.hasTradable(filter.tradable()))
+        );
     }
 
     public void syncAssetData(StockExchange stockExchange, AssetCategory category) {

@@ -4,8 +4,9 @@ import org.hameed.hameedmoneycli.enums.TransactionType;
 import org.hameed.hameedmoneycli.model.entity.Transaction;
 import org.springframework.data.jpa.domain.Specification;
 
-import java.time.LocalDate;
+import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 
@@ -51,6 +52,57 @@ public class TransactionSpecification {
             LocalDate d = LocalDate.parse(raw);
             Instant endExclusive = d.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant();
             return cb.lessThan(root.get("transactionDate"), endExclusive);
+        };
+    }
+
+    public static Specification<Transaction> hasDescriptionContaining(String description) {
+        return (root, query, cb) -> {
+            if (description == null || description.isBlank()) {
+                return null;
+            }
+            String pattern = "%" + description.trim().toLowerCase() + "%";
+            return cb.like(cb.lower(root.get("description")), pattern);
+        };
+    }
+
+    public static Specification<Transaction> hasAmountBetween(BigDecimal minAmount, BigDecimal maxAmount) {
+        return (root, query, cb) -> {
+            if (minAmount == null && maxAmount == null) {
+                return null;
+            }
+            Specification<Transaction> fromSpec = (r, q, c) -> {
+                var pred = c.conjunction();
+                if (minAmount != null) {
+                    pred = c.and(pred, c.greaterThanOrEqualTo(r.get("fromAmount"), minAmount));
+                }
+                if (maxAmount != null) {
+                    pred = c.and(pred, c.lessThanOrEqualTo(r.get("fromAmount"), maxAmount));
+                }
+                return pred;
+            };
+            Specification<Transaction> toSpec = (r, q, c) -> {
+                var pred = c.conjunction();
+                if (minAmount != null) {
+                    pred = c.and(pred, c.greaterThanOrEqualTo(r.get("toAmount"), minAmount));
+                }
+                if (maxAmount != null) {
+                    pred = c.and(pred, c.lessThanOrEqualTo(r.get("toAmount"), maxAmount));
+                }
+                return pred;
+            };
+            return cb.or(fromSpec.toPredicate(root, query, cb), toSpec.toPredicate(root, query, cb));
+        };
+    }
+
+    public static Specification<Transaction> hasInvolvedAccount(Long accountId) {
+        return (root, query, cb) -> {
+            if (accountId == null) {
+                return null;
+            }
+            return cb.or(
+                    cb.equal(root.get("fromAccount").get("id"), accountId),
+                    cb.equal(root.get("toAccount").get("id"), accountId)
+            );
         };
     }
 

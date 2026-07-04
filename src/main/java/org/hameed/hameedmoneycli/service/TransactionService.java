@@ -72,13 +72,15 @@ public class TransactionService {
                         where(TransactionSpecification.hasTransactionType(filter.transactionType()))
                         .and(TransactionSpecification.hasFromAccountId(filter.fromAccountId()))
                         .and(TransactionSpecification.hasToAccountId(filter.toAccountId()))
-                        .and(TransactionSpecification.hasTransactionDateTimeFrom(filter.transactionDateTimeFrom())
-                        .and(TransactionSpecification.hasTransactionDateTimeTo(filter.transactionDateTimeTo())))
+                        .and(TransactionSpecification.hasTransactionDateTimeFrom(filter.transactionDateTimeFrom()))
+                        .and(TransactionSpecification.hasTransactionDateTimeTo(filter.transactionDateTimeTo()))
+                        .and(TransactionSpecification.hasDescriptionContaining(filter.description()))
+                        .and(TransactionSpecification.hasAmountBetween(filter.minAmount(), filter.maxAmount()))
+                        .and(TransactionSpecification.hasInvolvedAccount(filter.involvedAccountId()))
         );
     }
 
     public void generateTransactionReport(TransactionFilter filter) throws IOException {
-        // generate a csv file in a path defined in the application properties file with the transactions matching the filter criteria
         List<Transaction> transactions = this.getTransactions(filter);
 
         String fullPathStr = System.getProperty("user.home") + transactionReportPath + "/transaction_report-"+ OffsetDateTime.now() + ".csv";

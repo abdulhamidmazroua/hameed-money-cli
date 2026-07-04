@@ -1,14 +1,18 @@
 package org.hameed.hameedmoneycli.service;
 
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.hameed.hameedmoneycli.enums.AccountType;
+import org.hameed.hameedmoneycli.model.AccountSpecification;
 import org.hameed.hameedmoneycli.model.dto.AccountCreateDto;
+import org.hameed.hameedmoneycli.model.dto.AccountFilter;
 import org.hameed.hameedmoneycli.model.entity.Account;
 import org.hameed.hameedmoneycli.model.entity.Asset;
 import org.hameed.hameedmoneycli.repository.AccountRepository;
 import org.hameed.hameedmoneycli.repository.IngestionRuleRepository;
 import org.hameed.hameedmoneycli.repository.SourceSystemRepository;
 import org.hameed.hameedmoneycli.repository.TransactionRepository;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -23,6 +27,7 @@ public class AccountService {
     private final SourceSystemRepository sourceSystemRepository;
     private final IngestionRuleRepository ingestionRuleRepository;
 
+    @Transactional
     public void createAccount(AccountCreateDto newAccount) {
 
         Account parentAccount = null;
@@ -66,6 +71,15 @@ public class AccountService {
     public Account getAccountByName(String name) {
         return accountRepository.findByNameIgnoreCase(name)
                 .orElseThrow(() -> new IllegalArgumentException("Account with name '" + name + "' not found"));
+    }
+
+    public List<Account> findAccounts(AccountFilter filter) {
+        return accountRepository.findAll(
+                Specification
+                        .where(AccountSpecification.hasNameContaining(filter.keyword()))
+                        .and(AccountSpecification.hasMasterType(filter.masterType()))
+                        .and(AccountSpecification.hasAssetSymbol(filter.assetSymbol()))
+        );
     }
 
     public void deleteAccount(Long id) {
@@ -115,4 +129,3 @@ public class AccountService {
 
 
 }
-

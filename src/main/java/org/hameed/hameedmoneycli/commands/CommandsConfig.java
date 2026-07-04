@@ -51,7 +51,7 @@ public class CommandsConfig {
         return Command.builder()
                 .name("cat-list")
                 .description("List all asset categories")
-                .help("List all asset categories. Usage: `cat-list`")
+                .help("List all available asset categories (CASH, STOCK, ETF, CRYPTO, etc.). Usage: `cat-list`")
                 .availabilityProvider(availabilityProvider())
                 .exitStatusExceptionMapper(exceptionMapper())
                 .execute(ctx -> {
@@ -65,8 +65,10 @@ public class CommandsConfig {
     public Command fetchAssetData() {
         return Command.builder()
                 .name("asset fetch")
-                .description("Fetch asset data")
-                .help("Fetch asset data. Usage: `asset fetch stock EGX` or `asset fetch --category stock --exchange EGX`")
+                .description("Fetch available securities from an exchange")
+                .help("Fetch available securities (stocks, ETFs, funds) from an exchange. Usage: `asset fetch stock EGX` or `asset fetch --category stock --exchange EGX`")
+                .availabilityProvider(availabilityProvider())
+                .exitStatusExceptionMapper(exceptionMapper())
                 .options(CommandOption.with()
                         .shortName('c')
                         .longName("category")
@@ -97,8 +99,8 @@ public class CommandsConfig {
     public Command registerAsset() {
         return Command.builder()
                 .name("asset register")
-                .description("Register a new asset")
-                .help("Register a new asset. Usage: `asset register \"Commercial International Bank\" COMI.CA` or `asset register --name \"Bank\" --symbol BNK`")
+                .description("Register a new asset manually")
+                .help("Register a new asset manually. Usage: `asset register \"Commercial International Bank\" COMI.CA` or `asset register --name \"Bank\" --symbol BNK`")
                 .options(CommandOption.with()
                                 .shortName('n')
                                 .longName("name")
@@ -217,7 +219,7 @@ public class CommandsConfig {
         return Command.builder()
                 .name("account init")
                 .description("Create an account and post its opening balance in one shot")
-                .help("Create an account and post its opening balance. Usage: `account init --name \"XYZ Fund\" --asset XYZ --balance 1000 --parent-account-id 5` \nAlso accepts --category (default cash). If the asset does not exist, it is registered automatically.")
+                .help("Create an account and post its opening balance. Usage: `account init --name \"Wallet\" --asset EGP --balance 1000 --parent-account-id 5` \nNote: the account name is auto-prefixed with the asset symbol (e.g., \"EGP:Wallet\"). Also accepts --category (default cash). If the asset does not exist, it is registered automatically.")
                 .options(
                         CommandOption.with()
                                 .shortName('n')
@@ -287,8 +289,8 @@ public class CommandsConfig {
     public Command listAccounts() {
         return Command.builder()
                 .name("account list")
-                .description("List all accounts")
-                .help("List all accounts. Usage: `account list`")
+                .description("List all accounts in a tree view")
+                .help("List all accounts grouped by type (ASSET, LIABILITY, INCOME, EXPENSE, SYSTEM) in a hierarchical tree. Usage: `account list`")
                 .availabilityProvider(availabilityProvider())
                 .exitStatusExceptionMapper(exceptionMapper())
                 .execute(ctx -> {
@@ -348,8 +350,8 @@ public class CommandsConfig {
     public Command listAssets() {
         return Command.builder()
                 .name("asset list")
-                .description("List all assets")
-                .help("List all assets. Usage: `asset list`")
+                .description("List all registered assets")
+                .help("List all registered assets with their ID, symbol and category. Usage: `asset list`")
                 .availabilityProvider(availabilityProvider())
                 .exitStatusExceptionMapper(exceptionMapper())
                 .execute(ctx -> {
@@ -364,8 +366,8 @@ public class CommandsConfig {
     public Command addTransaction() {
         return Command.builder()
                 .name("transaction add")
-                .description("Add a new transaction")
-                .help("Add a new transaction. Usage: `transaction add --from-amount 100 --to-amount 100 --fee-amount 2.2 --date 2024-01-01 --description \"Grocery shopping\" --from-account-id 1 --to-account-id 2` \n Note: you can also use `--amount` option instead of `--from-amount` and `--to-amount` if the amounts are the same for both sides of the transaction. \n Instead of `--from-account-id`/`--to-account-id` you can use `--from-account-name`/`--to-account-name`.")
+                .description("Record a transaction between two accounts")
+                .help("Record a transaction between two accounts. Usage: `transaction add --from-amount 100 --to-amount 100 --fee-amount 2.2 --date 2024-01-01 --description \"Grocery shopping\" --from-account-id 1 --to-account-id 2` \n Note: use `--amount` instead of `--from-amount` and `--to-amount` if both sides match. \n Use `--from-account-name`/`--to-account-name` instead of IDs.")
                 .availabilityProvider(availabilityProvider())
                 .exitStatusExceptionMapper(exceptionMapper())
                 .options(
@@ -491,8 +493,8 @@ public class CommandsConfig {
     public Command listTransactions() {
         return Command.builder()
                 .name("transaction list")
-                .description("List all transactions")
-                .help("List all transactions. Usage: `transaction list --transaction-type CARD_PURCHASE --from-account-id 1 --to-account-id 2 --start-date 2024-01-01 --end-date 2024-12-31` \n Note: all options are optional, you can filter transactions by from account, to account, start date, end date, and transaction type.")
+                .description("List transactions with optional filters")
+                .help("List transactions with optional filters. Usage: `transaction list --transaction-type CARD_PURCHASE --from-account-id 1 --to-account-id 2 --start-date 2024-01-01 --end-date 2024-12-31` \n All options are optional — omitting them lists all transactions.")
                 .availabilityProvider(availabilityProvider())
                 .exitStatusExceptionMapper(exceptionMapper())
 
@@ -569,8 +571,8 @@ public class CommandsConfig {
     public Command generateTransactionReport() {
         return Command.builder()
                 .name("transaction report")
-                .description("Generate a transaction report")
-                .help("Generate a transaction report. Usage: `transaction report --transaction-type CARD_PURCHASE --from-account-id 1 --to-account-id 2 --start-date 2024-01-01 --end-date 2024-12-31` \n Note: all options are optional, you can filter transactions by from account, to account, start date, end date, and transaction type.")
+                .description("Export transactions to a CSV report")
+                .help("Export filtered transactions to a CSV file. Usage: `transaction report --transaction-type CARD_PURCHASE --from-account-id 1 --to-account-id 2 --start-date 2024-01-01 --end-date 2024-12-31` \n All options are optional — omitting them exports all transactions.")
                 .availabilityProvider(availabilityProvider())
                 .exitStatusExceptionMapper(exceptionMapper())
 
@@ -633,8 +635,8 @@ public class CommandsConfig {
     public Command ingestTransactions() {
         return Command.builder()
                 .name("ingest")
-                .description("Ingest transactions from a file")
-                .help("Ingest transactions from a file. Usage: `ingest HSBC_APP /path/to/transactions.csv` or `ingest --source HSBC_APP --file-path /path/to/transactions.csv`")
+                .description("Import transactions from a CSV file")
+                .help("Import transactions from a CSV file. Usage: `ingest HSBC_APP /path/to/transactions.csv` or `ingest --source HSBC_APP --file-path /path/to/transactions.csv`")
                 .availabilityProvider(availabilityProvider())
                 .exitStatusExceptionMapper(exceptionMapper())
 
@@ -669,8 +671,8 @@ public class CommandsConfig {
     public Command addRule() {
         return Command.builder()
                 .name("rule add")
-                .description("Add a new ingestion rule")
-                .help("Add a new ingestion rule. Usage: `rule add \"regex\" 5` or `rule add --pattern \"regex\" --target 5`")
+                .description("Add a transaction ingestion rule")
+                .help("Add a transaction ingestion rule. Usage: `rule add \"regex\" 5` or `rule add --pattern \"regex\" --target 5`")
                 .options(CommandOption.with()
                                 .shortName('p')
                                 .longName("pattern")
@@ -702,8 +704,8 @@ public class CommandsConfig {
     public Command setQuote() {
         return Command.builder()
                 .name("quote set")
-                .description("Set the latest price for an asset")
-                .help("Set the latest price for an asset. Usage: `quote set USD EGP --price 48.5` or `quote set --base USD --quote EGP --price 48.5`")
+                .description("Set a market quote manually")
+                .help("Set a market quote manually. Usage: `quote set USD EGP --price 48.5` or `quote set --base USD --quote EGP --price 48.5`")
                 .options(
                         CommandOption.with()
                                 .shortName('b')
@@ -752,8 +754,8 @@ public class CommandsConfig {
     public Command getQuote() {
         return Command.builder()
                 .name("quote get")
-                .description("Get the latest price for an asset")
-                .help("Get the latest price for an asset. Usage: `quote get AAPL USD` or `quote get --base AAPL --quote USD`")
+                .description("Look up a stored market quote")
+                .help("Look up a stored market quote. Usage: `quote get AAPL USD` or `quote get --base AAPL --quote USD`")
                 .options(
                         CommandOption.with()
                                 .shortName('b')
@@ -841,8 +843,8 @@ public class CommandsConfig {
     public Command reportNetworth() {
         return Command.builder()
                 .name("report nw")
-                .description("Generate balance sheet net worth report valued in a specific currency")
-                .help("Generate a financial report. Usage: `report nw --currency EGP` or just `report nw` (defaults to EGP).")
+                .description("Net worth statement valued in a currency")
+                .help("Generate a net worth statement (balance sheet) with all accounts converted to a target currency. Usage: `report nw EGP` or `report nw --currency EGP` (defaults to EGP).")
                 .options(CommandOption.with()
                         .shortName('c')
                         .longName("currency")
@@ -863,8 +865,8 @@ public class CommandsConfig {
     public Command reportDataIntegrity() {
         return Command.builder()
                 .name("report data-integrity")
-                .description("Generate a data integrity audit report")
-                .help("Generate a data integrity audit report. Usage: `report data-integrity`")
+                .description("Ledger data integrity report")
+                .help("Generate a data integrity report showing total debits vs credits per asset, and listing opening balances, increase adjustments and decrease adjustments. Usage: `report data-integrity`")
                 .availabilityProvider(availabilityProvider())
                 .exitStatusExceptionMapper(exceptionMapper())
                 .execute(ctx -> {
@@ -876,8 +878,8 @@ public class CommandsConfig {
     public Command auditAccount() {
         return Command.builder()
                 .name("audit account")
-                .description("Audit an account — verify computed balance")
-                .help("Audit an account. Usage: `audit account 5` or `audit account --id 5` or `--name \"Foo\"`")
+                .description("Verify an account's computed balance")
+                .help("Verify an account's computed balance matches expected. Usage: `audit account 5` or `audit account --id 5` or `audit account --name \"Foo\"`")
                 .options(
                         CommandOption.with()
                                 .shortName('i')
@@ -939,8 +941,8 @@ public class CommandsConfig {
     public Command auditTrail() {
         return Command.builder()
                 .name("audit trail")
-                .description("Full ledger audit — verify data integrity across all accounts")
-                .help("Run a full ledger audit. Usage: `audit trail`")
+                .description("Full ledger data integrity check")
+                .help("Run a full ledger audit checking every account's balance against its computed total. Usage: `audit trail`")
                 .availabilityProvider(availabilityProvider())
                 .exitStatusExceptionMapper(exceptionMapper())
                 .execute(ctx -> {
@@ -952,8 +954,8 @@ public class CommandsConfig {
     public Command hmcInit() {
         return Command.builder()
                 .name("hmc init")
-                .description("Initialize an account with an opening balance (system adjustment)")
-                .help("Initialize an account with an opening balance. Usage: `hmc init \"HSBC Current\" --balance 50000` or `hmc init --account \"HSBC Current\" --balance 50000`")
+                .description("Post an opening balance to an account")
+                .help("Post an opening balance to an existing account. Usage: `hmc init \"EGP:HSBC Current Account\" --balance 50000` or `hmc init --account \"EGP:HSBC Current Account\" --balance 50000`")
                 .options(
                         CommandOption.with()
                                 .shortName('a')
@@ -997,8 +999,8 @@ public class CommandsConfig {
     public Command hmcReconcile() {
         return Command.builder()
                 .name("hmc reconcile")
-                .description("Reconcile an account's computed balance with the actual balance")
-                .help("Reconcile an account. Usage: `hmc reconcile \"HSBC Current\" --actual 49990` or `hmc reconcile --account \"HSBC Current\" --actual 49990`")
+                .description("Reconcile an account to its actual balance")
+                .help("Reconcile an account's computed balance to its actual balance via an adjustment transaction. Usage: `hmc reconcile \"EGP:HSBC Current Account\" --actual 49990` or `hmc reconcile --account \"EGP:HSBC Current Account\" --actual 49990`")
                 .options(
                         CommandOption.with()
                                 .shortName('a')
@@ -1042,8 +1044,8 @@ public class CommandsConfig {
     public Command dbBackup() {
         return Command.builder()
                 .name("hmc db backup")
-                .description("Backup the database with pg_dump")
-                .help("Backup the database. Usage: `hmc db backup` or `hmc db backup --output ~/hmc/backups`")
+                .description("Backup the database via pg_dump")
+                .help("Backup the database using pg_dump. Usage: `hmc db backup` or `hmc db backup --output ~/hmc/backups`")
                 .options(
                         CommandOption.with()
                                 .longName("output")

@@ -14,6 +14,7 @@ import org.hameed.hameedmoneycli.util.DateUtil;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -33,6 +34,7 @@ public class TransactionService {
     @Value("${hmc.report.output-dir}")
     private String transactionReportPath;
 
+    @Transactional
     public void createTransaction(TransactionCreateDto transactionCreateDto) {
         var fromAcc = accountService.getAccountById(transactionCreateDto.fromAccountId());
         var toAcc = accountService.getAccountById(transactionCreateDto.toAccountId());

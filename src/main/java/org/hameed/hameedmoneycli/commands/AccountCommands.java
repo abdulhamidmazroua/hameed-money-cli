@@ -2,15 +2,11 @@ package org.hameed.hameedmoneycli.commands;
 
 import lombok.RequiredArgsConstructor;
 import org.hameed.hameedmoneycli.enums.AccountType;
-import org.hameed.hameedmoneycli.enums.AssetCategory;
 import org.hameed.hameedmoneycli.model.dto.AccountCreateDto;
 import org.hameed.hameedmoneycli.model.dto.AccountFilter;
-import org.hameed.hameedmoneycli.model.dto.AssetCreateDto;
 import org.hameed.hameedmoneycli.model.entity.Account;
-import org.hameed.hameedmoneycli.model.entity.Asset;
 import org.hameed.hameedmoneycli.service.AccountService;
 import org.hameed.hameedmoneycli.service.AssetService;
-import org.hameed.hameedmoneycli.service.SystemAdjustmentService;
 import org.hameed.hameedmoneycli.util.CommandsUtil;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -19,7 +15,6 @@ import org.springframework.shell.core.command.CommandOption;
 import org.springframework.shell.jline.tui.component.flow.ComponentFlow;
 import org.springframework.shell.jline.tui.component.flow.SelectItem;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -33,7 +28,6 @@ public class AccountCommands {
 
     private final AccountService accountService;
     private final AssetService assetService;
-    private final SystemAdjustmentService systemAdjustmentService;
     private final ComponentFlow.Builder componentFlowBuilder;
 
     @Bean
@@ -152,27 +146,10 @@ public class AccountCommands {
                     String categoryArg = getOptionOrDefault(ctx, 'c', "category", "cash");
                     String balanceStr = getOptionOrError(ctx, 'b', "balance", "<balance> option is missing. \n" + usage);
 
-                    AssetCategory category = AssetCategory.fromString(categoryArg);
-                    Asset asset;
-                    try {
-                        asset = assetService.getAssetBySymbolAndCategory(assetSymbol, category);
-                    } catch (IllegalArgumentException e) {
-                        assetService.createAsset(new AssetCreateDto(assetSymbol, assetSymbol, category, category.isTradable()));
-                        asset = assetService.getAssetBySymbolAndCategory(assetSymbol, category);
-                    }
-
                     Long parentAccountId = parentId != null && !parentId.isBlank() ? Long.valueOf(parentId) : null;
 
-                    accountService.createAccount(new AccountCreateDto(
-                            accountName,
-                            AccountType.ASSET,
-                            parentAccountId,
-                            asset.getId(),
-                            true
-                    ));
-
-                    systemAdjustmentService.initAccount(accountName, new BigDecimal(balanceStr));
-                    ctx.outputWriter().println("Account '" + accountName + "' created with opening balance " + balanceStr + " " + assetSymbol + ".");
+                    Account account = accountService.createAccountWithOpeningBalance(accountName, parentAccountId, assetSymbol, categoryArg, balanceStr);
+                    ctx.outputWriter().println("Account '" + account.getName() + "' created with opening balance " + balanceStr + " " + assetSymbol + ".");
                 });
     }
 

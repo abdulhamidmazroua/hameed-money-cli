@@ -12,6 +12,7 @@ import org.hameed.hameedmoneycli.provider.MarketInstrument;
 import org.hameed.hameedmoneycli.repository.AssetRepository;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
 import java.util.List;
@@ -24,6 +25,7 @@ public class AssetService {
     private final AssetRepository assetRepository;
     private final MarketDataProvider marketDataProvider;
 
+    @Transactional
     public void createAsset(AssetCreateDto newAsset) {
         Asset asset = Asset.builder()
                 .name(newAsset.name())
@@ -34,6 +36,7 @@ public class AssetService {
         assetRepository.save(asset);
     }
 
+    @Transactional
     public void createAsset(AssetCreateDto newAsset, Map<String, String> metadata) {
         Asset asset = Asset.builder()
                 .name(newAsset.name())
@@ -73,6 +76,7 @@ public class AssetService {
         );
     }
 
+    @Transactional
     public void syncAssetData(StockExchange stockExchange, AssetCategory category) {
         List<MarketInstrument> instruments = marketDataProvider.getExchangeSymbols(stockExchange.toString(), category);
 

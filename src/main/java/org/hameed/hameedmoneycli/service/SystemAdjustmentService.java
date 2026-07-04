@@ -11,6 +11,7 @@ import org.hameed.hameedmoneycli.repository.AccountRepository;
 import org.hameed.hameedmoneycli.repository.SourceSystemRepository;
 import org.hameed.hameedmoneycli.repository.TransactionRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -23,57 +24,11 @@ public class SystemAdjustmentService {
     private final TransactionRepository transactionRepository;
     private final SourceSystemRepository sourceSystemRepository;
 
-    public void initAccount(Long accountId, BigDecimal balance) {
-        Account leaf = resolveAccount(accountId, null);
-        doInit(leaf, balance);
-    }
+    @Transactional
+    public void adjustBalance(Long accountId, BigDecimal actualBalance) {
+        Account leaf = accountRepository.findById(accountId)
+                .orElseThrow(() -> new IllegalArgumentException("Account with ID " + accountId + " not found"));
 
-    public void initAccount(String accountName, BigDecimal balance) {
-        Account leaf = resolveAccount(null, accountName);
-        doInit(leaf, balance);
-    }
-
-    private void doInit(Account leaf, BigDecimal balance) {
-        Asset asset = leaf.getAsset();
-        if (asset == null) {
-            throw new IllegalArgumentException("Account '" + leaf.getName() + "' is a folder (no asset). Cannot post an opening balance.");
-        }
-
-        Account openingAccount = accountRepository.findByNameIgnoreCase(asset.getSymbol() + ":Opening Balance")
-                .orElseThrow(() -> new IllegalStateException(
-                        "No opening balance SYSTEM account found for asset " + asset.getSymbol() + ". " +
-                        "Create a leaf account with this asset first so the SYSTEM trio is generated."));
-
-        SourceSystem sourceSystem = sourceSystemRepository.findByCode(SourceSystemCode.MANUAL_ENTRY.name())
-                .orElseThrow(() -> new IllegalStateException("MANUAL_ENTRY source system not found in seed data."));
-
-        Transaction tx = Transaction.builder()
-                .description("Opening balance for " + leaf.getName())
-                .type(TransactionType.SYSTEM_ADJUSTMENT)
-                .fromAccount(openingAccount)
-                .toAccount(leaf)
-                .fromAmount(balance)
-                .toAmount(balance)
-                .transactionDate(Instant.now())
-                .sourceSystem(sourceSystem)
-                .feeAmount(BigDecimal.ZERO)
-                .isSystemAdjustment(true)
-                .build();
-
-        transactionRepository.save(tx);
-    }
-
-    public void reconcileAccount(Long accountId, BigDecimal actualBalance) {
-        Account leaf = resolveAccount(accountId, null);
-        doReconcile(leaf, actualBalance);
-    }
-
-    public void reconcileAccount(String accountName, BigDecimal actualBalance) {
-        Account leaf = resolveAccount(null, accountName);
-        doReconcile(leaf, actualBalance);
-    }
-
-    private void doReconcile(Account leaf, BigDecimal actualBalance) {
         Asset asset = leaf.getAsset();
         if (asset == null) {
             throw new IllegalArgumentException("Account '" + leaf.getName() + "' is a folder (no asset). Cannot reconcile.");
@@ -130,12 +85,37 @@ public class SystemAdjustmentService {
         transactionRepository.save(tx);
     }
 
-    private Account resolveAccount(Long id, String name) {
-        if (id != null) {
-            return accountRepository.findById(id)
-                    .orElseThrow(() -> new IllegalArgumentException("Account with ID " + id + " not found"));
+    @Transactional
+    public void openAccountBalance(Long accountId, BigDecimal balance) {
+        Account leaf = accountRepository.findById(accountId)
+                .orElseThrow(() -> new IllegalArgumentException("Account with ID " + accountId + " not found"));
+
+        Asset asset = leaf.getAsset();
+        if (asset == null) {
+            throw new IllegalArgumentException("Account '" + leaf.getName() + "' is a folder (no asset). Cannot post an opening balance.");
         }
-        return accountRepository.findByNameIgnoreCase(name)
-                .orElseThrow(() -> new IllegalArgumentException("Account not found: " + name));
+
+        Account openingAccount = accountRepository.findByNameIgnoreCase(asset.getSymbol() + ":Opening Balance")
+                .orElseThrow(() -> new IllegalStateException(
+                        "No opening balance SYSTEM account found for asset " + asset.getSymbol() + ". " +
+                        "Create a leaf account with this asset first so the SYSTEM trio is generated."));
+
+        SourceSystem sourceSystem = sourceSystemRepository.findByCode(SourceSystemCode.MANUAL_ENTRY.name())
+                .orElseThrow(() -> new IllegalStateException("MANUAL_ENTRY source system not found in seed data."));
+
+        Transaction tx = Transaction.builder()
+                .description("Opening balance for " + leaf.getName())
+                .type(TransactionType.SYSTEM_ADJUSTMENT)
+                .fromAccount(openingAccount)
+                .toAccount(leaf)
+                .fromAmount(balance)
+                .toAmount(balance)
+                .transactionDate(Instant.now())
+                .sourceSystem(sourceSystem)
+                .feeAmount(BigDecimal.ZERO)
+                .isSystemAdjustment(true)
+                .build();
+
+        transactionRepository.save(tx);
     }
 }

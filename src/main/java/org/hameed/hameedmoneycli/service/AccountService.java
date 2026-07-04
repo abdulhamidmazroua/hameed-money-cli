@@ -1,11 +1,12 @@
 package org.hameed.hameedmoneycli.service;
 
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.hameed.hameedmoneycli.enums.AccountType;
+import org.hameed.hameedmoneycli.enums.AssetCategory;
 import org.hameed.hameedmoneycli.model.AccountSpecification;
 import org.hameed.hameedmoneycli.model.dto.AccountCreateDto;
 import org.hameed.hameedmoneycli.model.dto.AccountFilter;
+import org.hameed.hameedmoneycli.model.dto.AssetCreateDto;
 import org.hameed.hameedmoneycli.model.entity.Account;
 import org.hameed.hameedmoneycli.model.entity.Asset;
 import org.hameed.hameedmoneycli.repository.AccountRepository;
@@ -14,7 +15,9 @@ import org.hameed.hameedmoneycli.repository.SourceSystemRepository;
 import org.hameed.hameedmoneycli.repository.TransactionRepository;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Service
@@ -26,9 +29,10 @@ public class AccountService {
     private final TransactionRepository transactionRepository;
     private final SourceSystemRepository sourceSystemRepository;
     private final IngestionRuleRepository ingestionRuleRepository;
+    private final SystemAdjustmentService systemAdjustmentService;
 
     @Transactional
-    public void createAccount(AccountCreateDto newAccount) {
+    public Account createAccount(AccountCreateDto newAccount) {
 
         Account parentAccount = null;
         if (newAccount.parentAccountId() != null) {
@@ -55,8 +59,10 @@ public class AccountService {
         accountRepository.save(account);
 
         if (asset != null) {
-            ensureSystemAccounts(asset);
+            createSystemAccounts(asset);
         }
+
+        return account;
     }
 
     public List<Account> getAllAccounts() {
@@ -82,6 +88,7 @@ public class AccountService {
         );
     }
 
+    @Transactional
     public void deleteAccount(Long id) {
         Account account = getAccountById(id);
 
@@ -101,7 +108,30 @@ public class AccountService {
         accountRepository.delete(account);
     }
 
-    private void ensureSystemAccounts(Asset asset) {
+    @Transactional
+    public Account createAccountWithOpeningBalance(String name, Long parentAccountId, String assetSymbol, String categoryStr, String balanceStr) {
+        AssetCategory category = AssetCategory.fromString(categoryStr);
+        Asset asset;
+        try {
+            asset = assetService.getAssetBySymbolAndCategory(assetSymbol, category);
+        } catch (IllegalArgumentException e) {
+            assetService.createAsset(new AssetCreateDto(assetSymbol, assetSymbol, category, category.isTradable()));
+            asset = assetService.getAssetBySymbolAndCategory(assetSymbol, category);
+        }
+
+        Account account = createAccount(new AccountCreateDto(
+                name,
+                AccountType.ASSET,
+                parentAccountId,
+                asset.getId(),
+                true
+        ));
+
+        systemAdjustmentService.openAccountBalance(account.getId(), new BigDecimal(balanceStr));
+        return account;
+    }
+
+    private void createSystemAccounts(Asset asset) {
         if (accountRepository.existsByAsset_IdAndMasterType(asset.getId(), AccountType.SYSTEM)) {
             return;
         }

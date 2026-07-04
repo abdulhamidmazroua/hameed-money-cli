@@ -11,6 +11,7 @@ import org.hameed.hameedmoneycli.proxy.YahooFinanceProxy;
 import org.hameed.hameedmoneycli.repository.MarketQuoteRepository;
 import org.hameed.hameedmoneycli.util.DateUtil;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -26,6 +27,7 @@ public class MarketQuoteService {
     private final YahooFinanceProxy yahooFinanceProxy;
     private static final ZoneId DEFAULT_ZONE = ZoneId.of("Africa/Cairo");
 
+    @Transactional
     public void setMarketQuote(MarketQuoteDto marketQuote) {
         MarketQuote entity = MarketQuote.builder()
                 .baseAsset(assetService.getAssetBySymbol(marketQuote.baseSymbol()))
@@ -67,6 +69,7 @@ public class MarketQuoteService {
                 .toList();
     }
 
+    @Transactional
     public void fetchAndSaveQuote(String baseSymbol, String quoteSymbol) {
         Asset base = assetService.getAssetBySymbol(baseSymbol);
         Asset quote = assetService.getAssetBySymbol(quoteSymbol);

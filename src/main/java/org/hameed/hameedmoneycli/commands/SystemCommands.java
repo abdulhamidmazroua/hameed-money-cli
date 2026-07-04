@@ -2,6 +2,7 @@ package org.hameed.hameedmoneycli.commands;
 
 import lombok.RequiredArgsConstructor;
 import org.hameed.hameedmoneycli.model.dto.RuleCreateDto;
+import org.hameed.hameedmoneycli.service.AccountService;
 import org.hameed.hameedmoneycli.service.BackupService;
 import org.hameed.hameedmoneycli.service.IngestionRuleService;
 import org.hameed.hameedmoneycli.service.IngestionService;
@@ -21,6 +22,7 @@ import static org.hameed.hameedmoneycli.util.CommandsUtil.*;
 @RequiredArgsConstructor
 public class SystemCommands {
 
+    private final AccountService accountService;
     private final IngestionService ingestionService;
     private final IngestionRuleService ingestionRuleService;
     private final SystemAdjustmentService systemAdjustmentService;
@@ -127,14 +129,16 @@ public class SystemCommands {
                     String idStr = getOptionOrDefault(ctx, 'i', "account-id", null);
                     String balance = getOptionOrError(ctx, 'b', "balance", required("balance"));
 
+                    Long accountId;
                     if (idStr != null) {
-                        systemAdjustmentService.initAccount(Long.valueOf(idStr), new BigDecimal(balance));
+                        accountId = Long.valueOf(idStr);
                     } else if (name != null) {
-                        systemAdjustmentService.initAccount(name, new BigDecimal(balance));
+                        accountId = accountService.getAccountByName(name).getId();
                     } else {
                         throw new IllegalArgumentException("Either --account <name>, --account-id <id>, or a positional account name is required.");
                     }
 
+                    systemAdjustmentService.openAccountBalance(accountId, new BigDecimal(balance));
                     ctx.outputWriter().println("Opening balance of " + balance + " posted.");
                 });
     }
@@ -172,14 +176,16 @@ public class SystemCommands {
                     String idStr = getOptionOrDefault(ctx, 'i', "account-id", null);
                     String actual = getOptionOrError(ctx, 'c', "actual", required("actual"));
 
+                    Long accountId;
                     if (idStr != null) {
-                        systemAdjustmentService.reconcileAccount(Long.valueOf(idStr), new BigDecimal(actual));
+                        accountId = Long.valueOf(idStr);
                     } else if (name != null) {
-                        systemAdjustmentService.reconcileAccount(name, new BigDecimal(actual));
+                        accountId = accountService.getAccountByName(name).getId();
                     } else {
                         throw new IllegalArgumentException("Either --account <name>, --account-id <id>, or a positional account name is required.");
                     }
 
+                    systemAdjustmentService.adjustBalance(accountId, new BigDecimal(actual));
                     ctx.outputWriter().println("Reconciled to actual balance " + actual);
                 });
     }

@@ -39,7 +39,7 @@ public class SystemAdjustmentService {
             throw new IllegalArgumentException("Account '" + leaf.getName() + "' is a folder (no asset). Cannot post an opening balance.");
         }
 
-        Account openingAccount = accountRepository.findByNameIgnoreCase("Opening " + asset.getSymbol() + " Balance")
+        Account openingAccount = accountRepository.findByNameIgnoreCase(asset.getSymbol() + ":Opening Balance")
                 .orElseThrow(() -> new IllegalStateException(
                         "No opening balance SYSTEM account found for asset " + asset.getSymbol() + ". " +
                         "Create a leaf account with this asset first so the SYSTEM trio is generated."));
@@ -92,7 +92,7 @@ public class SystemAdjustmentService {
 
         Transaction tx;
         if (difference.compareTo(BigDecimal.ZERO) > 0) {
-            Account increaseAccount = accountRepository.findByNameIgnoreCase(asset.getSymbol() + " Balance Increase Adjustment")
+            Account increaseAccount = accountRepository.findByNameIgnoreCase(asset.getSymbol() + ":Balance Increase Adjustment")
                     .orElseThrow(() -> new IllegalStateException(
                             "No increase adjustment SYSTEM account found for asset " + asset.getSymbol()));
 
@@ -109,7 +109,7 @@ public class SystemAdjustmentService {
                     .isSystemAdjustment(true)
                     .build();
         } else {
-            Account decreaseAccount = accountRepository.findByNameIgnoreCase(asset.getSymbol() + " Balance Decrease Adjustment")
+            Account decreaseAccount = accountRepository.findByNameIgnoreCase(asset.getSymbol() + ":Balance Decrease Adjustment")
                     .orElseThrow(() -> new IllegalStateException(
                             "No decrease adjustment SYSTEM account found for asset " + asset.getSymbol()));
 

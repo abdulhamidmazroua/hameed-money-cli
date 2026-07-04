@@ -35,8 +35,13 @@ public class AccountService {
             asset = assetService.getAssetById(newAccount.assetId());
         }
 
+        String name = newAccount.name();
+        if (asset != null && !name.startsWith(asset.getSymbol() + ":")) {
+            name = asset.getSymbol() + ":" + name;
+        }
+
         Account account = Account.builder()
-                .name(newAccount.name())
+                .name(name)
                 .masterType(newAccount.accountType())
                 .parent(parentAccount)
                 .asset(asset)
@@ -87,21 +92,21 @@ public class AccountService {
             return;
         }
 
-        String sym = asset.getSymbol();
+        String prefix = asset.getSymbol() + ":";
         accountRepository.save(Account.builder()
-                .name("Opening " + sym + " Balance")
+                .name(prefix + "Opening Balance")
                 .masterType(AccountType.SYSTEM)
                 .asset(asset)
                 .isInternal(false)
                 .build());
         accountRepository.save(Account.builder()
-                .name(sym + " Balance Increase Adjustment")
+                .name(prefix + "Balance Increase Adjustment")
                 .masterType(AccountType.SYSTEM)
                 .asset(asset)
                 .isInternal(false)
                 .build());
         accountRepository.save(Account.builder()
-                .name(sym + " Balance Decrease Adjustment")
+                .name(prefix + "Balance Decrease Adjustment")
                 .masterType(AccountType.SYSTEM)
                 .asset(asset)
                 .isInternal(false)

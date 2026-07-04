@@ -17,6 +17,7 @@ import org.springframework.shell.jline.tui.component.flow.SelectItem;
 import java.util.List;
 
 import static org.hameed.hameedmoneycli.util.CommandsUtil.*;
+import static org.hameed.hameedmoneycli.constants.CommandConstants.*;
 
 @Configuration
 @RequiredArgsConstructor
@@ -29,8 +30,8 @@ public class AssetCommands {
     public Command getCategories() {
         return Command.builder()
                 .name("cat-list")
-                .description("List all asset categories")
-                .help("List all available asset categories (CASH, STOCK, ETF, CRYPTO, etc.). Usage: `cat-list`")
+                .description(CAT_LIST_COMMAND_DESCRIPTION)
+                .help(CAT_LIST_COMMAND_HELP)
                 .availabilityProvider(availabilityProvider())
                 .exitStatusExceptionMapper(exceptionMapper())
                 .execute(ctx -> {
@@ -44,32 +45,32 @@ public class AssetCommands {
     public Command fetchAssetData() {
         return Command.builder()
                 .name("asset fetch")
-                .description("Fetch available securities from an exchange")
-                .help("Fetch available securities (stocks, ETFs, funds) from an exchange. Usage: `asset fetch stock EGX` or `asset fetch --category stock --exchange EGX`")
+                .description(ASSET_FETCH_COMMAND_DESCRIPTION)
+                .help(ASSET_FETCH_COMMAND_HELP)
                 .availabilityProvider(availabilityProvider())
                 .exitStatusExceptionMapper(exceptionMapper())
                 .options(CommandOption.with()
                                 .shortName('c')
-                                .longName("category")
+                                .longName(CATEGORY_ARG)
                                 .type(String.class)
                                 .required(false)
                                 .build(),
                         CommandOption.with()
                                 .shortName('e')
-                                .longName("exchange")
+                                .longName(EXCHANGE_ARG)
                                 .type(String.class)
                                 .required(false)
                                 .build())
                 .execute(ctx -> {
-                    String category = argOrOption(ctx, 0, 'c', "category");
-                    if (category == null) throw new IllegalArgumentException(required("category"));
+                    String category = argOrOption(ctx, 0, 'c', CATEGORY_ARG);
+                    if (category == null) throw new IllegalArgumentException(ASSET_FETCH_CATEGORY_ARG_ERROR);
                     AssetCategory assetCategory = AssetCategory.fromString(category);
 
                     if (assetCategory != AssetCategory.STOCK && assetCategory != AssetCategory.ETF && assetCategory != AssetCategory.MUTUAL_FUND) {
-                        throw new IllegalArgumentException("Unsupported category: " + category + ". Use stock, etf, or fund.");
+                        throw new IllegalArgumentException(String.format(ASSET_FETCH_UNSUPPORTED_CATEGORY, category));
                     }
-                    String exchange = argOrOption(ctx, 1, 'e', "exchange");
-                    if (exchange == null) throw new IllegalArgumentException(required("exchange"));
+                    String exchange = argOrOption(ctx, 1, 'e', EXCHANGE_ARG);
+                    if (exchange == null) throw new IllegalArgumentException(ASSET_FETCH_EXCHANGE_ARG_ERROR);
                     assetService.syncAssetData(StockExchange.fromString(exchange), assetCategory);
                 });
     }
@@ -78,34 +79,34 @@ public class AssetCommands {
     public Command registerAsset() {
         return Command.builder()
                 .name("asset register")
-                .description("Register a new asset manually")
-                .help("Register a new asset manually. Usage: `asset register \"Commercial International Bank\" COMI.CA` or `asset register --name \"Bank\" --symbol BNK`")
+                .description(ASSET_REGISTER_COMMAND_DESCRIPTION)
+                .help(ASSET_REGISTER_COMMAND_HELP)
                 .options(CommandOption.with()
                                 .shortName('n')
-                                .longName("name")
+                                .longName(NAME_ARG)
                                 .required(false)
                                 .type(String.class)
                                 .build(),
                         CommandOption.with()
                                 .shortName('s')
-                                .longName("symbol")
+                                .longName(SYMBOL_ARG)
                                 .required(false)
                                 .type(String.class)
                                 .build(),
                         CommandOption.with()
                                 .shortName('c')
-                                .longName("category")
+                                .longName(CATEGORY_ARG)
                                 .required(false)
                                 .type(String.class)
                                 .build())
                 .exitStatusExceptionMapper(exceptionMapper())
                 .availabilityProvider(availabilityProvider())
                 .execute(ctx -> {
-                    String assetName = argOrOption(ctx, 0, 'n', "name");
-                    if (assetName == null) throw new IllegalArgumentException(required("name"));
-                    String symbol = argOrOption(ctx, 1, 's', "symbol");
-                    if (symbol == null) throw new IllegalArgumentException(required("symbol"));
-                    String categoryArg = getOptionOrDefault(ctx, 'c', "category", null);
+                    String assetName = argOrOption(ctx, 0, 'n', NAME_ARG);
+                    if (assetName == null) throw new IllegalArgumentException(ASSET_REGISTER_NAME_ARG_ERROR);
+                    String symbol = argOrOption(ctx, 1, 's', SYMBOL_ARG);
+                    if (symbol == null) throw new IllegalArgumentException(ASSET_REGISTER_SYMBOL_ARG_ERROR);
+                    String categoryArg = getOptionOrDefault(ctx, 'c', CATEGORY_ARG, null);
 
                     String assetCategory;
                     if (categoryArg != null) {
@@ -119,7 +120,7 @@ public class AssetCommands {
                                         .toList()).and().build().run();
                         assetCategory = assetCategoryResult.getContext().get("assetCategory", String.class);
                     }
-                    assetService.createAsset(new AssetCreateDto(assetName, symbol, AssetCategory.fromString(assetCategory), AssetCategory.fromString(assetCategory).isTradable()));
+                    assetService.createAsset(new AssetCreateDto(assetName, symbol, AssetCategory.fromString(assetCategory)));
                 });
     }
 
@@ -127,8 +128,8 @@ public class AssetCommands {
     public Command listAssets() {
         return Command.builder()
                 .name("asset list")
-                .description("List all registered assets")
-                .help("List all registered assets with their ID, symbol and category. Usage: `asset list`")
+                .description(ASSET_LIST_COMMAND_DESCRIPTION)
+                .help(ASSET_LIST_COMMAND_HELP)
                 .availabilityProvider(availabilityProvider())
                 .exitStatusExceptionMapper(exceptionMapper())
                 .execute(ctx -> {
@@ -141,35 +142,35 @@ public class AssetCommands {
     public Command findAssets() {
         return Command.builder()
                 .name("asset find")
-                .description("Search assets by keyword, category, or tradable status")
-                .help("Search assets by keyword (matches name or symbol), category, or tradable status. Usage: `asset find aapl` or `asset find --category stock --tradable` or `asset find` (lists all)")
+                .description(ASSET_FIND_COMMAND_DESCRIPTION)
+                .help(ASSET_FIND_COMMAND_HELP)
                 .availabilityProvider(availabilityProvider())
                 .exitStatusExceptionMapper(exceptionMapper())
                 .options(
                         CommandOption.with()
                                 .shortName('c')
-                                .longName("category")
+                                .longName(CATEGORY_ARG)
                                 .required(false)
                                 .type(String.class)
                                 .build(),
                         CommandOption.with()
-                                .longName("tradable")
+                                .longName(TRADABLE_ARG)
                                 .required(false)
                                 .type(Boolean.class)
                                 .build(),
                         CommandOption.with()
-                                .longName("non-tradable")
+                                .longName(NON_TRADABLE_ARG)
                                 .required(false)
                                 .type(Boolean.class)
                                 .build()
                 )
                 .execute(ctx -> {
-                    String keyword = argOrOption(ctx, 0, 'k', "keyword");
-                    String category = getOptionOrDefault(ctx, 'c', "category", null);
+                    String keyword = argOrOption(ctx, 0, 'k', KEYWORD_ARG);
+                    String category = getOptionOrDefault(ctx, 'c', CATEGORY_ARG, null);
                     Boolean tradable = null;
-                    if (getOptionOrDefault(ctx, (char) 0, "tradable", null) != null) {
+                    if (getOptionOrDefault(ctx, (char) 0, TRADABLE_ARG, null) != null) {
                         tradable = true;
-                    } else if (getOptionOrDefault(ctx, (char) 0, "non-tradable", null) != null) {
+                    } else if (getOptionOrDefault(ctx, (char) 0, NON_TRADABLE_ARG, null) != null) {
                         tradable = false;
                     }
 

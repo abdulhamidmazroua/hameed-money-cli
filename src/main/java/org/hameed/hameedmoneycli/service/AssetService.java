@@ -31,7 +31,7 @@ public class AssetService {
                 .name(newAsset.name())
                 .symbol(newAsset.symbol())
                 .category(newAsset.category())
-                .isTradable(newAsset.isTradable())
+                .isTradable(newAsset.category().isTradable())
                 .build();
         assetRepository.save(asset);
     }
@@ -42,7 +42,7 @@ public class AssetService {
                 .name(newAsset.name())
                 .symbol(newAsset.symbol())
                 .category(newAsset.category())
-                .isTradable(newAsset.isTradable())
+                .isTradable(newAsset.category().isTradable())
                 .build();
         asset.setMetadata(metadata);
         assetRepository.save(asset);
@@ -56,11 +56,6 @@ public class AssetService {
     public Asset getAssetBySymbol(String symbol) {
         return assetRepository.findFirstBySymbol(symbol)
                 .orElseThrow(() -> new IllegalArgumentException("Asset with symbol " + symbol + " not found"));
-    }
-
-    public Asset getAssetBySymbolAndCategory(String symbol, AssetCategory category) {
-        return assetRepository.findBySymbolAndCategory(symbol, category)
-                .orElseThrow(() -> new IllegalArgumentException("Asset with symbol " + symbol + " and category " + category + " not found"));
     }
 
     public List<Asset> getAllAssets() {
@@ -93,8 +88,7 @@ public class AssetService {
                 AssetCreateDto assetCreateDto = new AssetCreateDto(
                         instrument.name(),
                         instrument.symbol(),
-                        instrument.category(),
-                        true
+                        instrument.category()
                 );
                 this.createAsset(assetCreateDto, metadata);
             }

@@ -12,6 +12,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import static org.hameed.hameedmoneycli.util.CommandsUtil.*;
+import static org.hameed.hameedmoneycli.constants.CommandConstants.*;
 
 @Configuration
 @RequiredArgsConstructor
@@ -23,30 +24,30 @@ public class QuoteCommands {
     public Command setQuote() {
         return Command.builder()
                 .name("quote set")
-                .description("Set a market quote manually")
-                .help("Set a market quote manually. Usage: `quote set USD EGP --price 48.5` or `quote set --base USD --quote EGP --price 48.5`")
+                .description(QUOTE_SET_COMMAND_DESCRIPTION)
+                .help(QUOTE_SET_COMMAND_HELP)
                 .options(
                         CommandOption.with()
                                 .shortName('b')
-                                .longName("base")
+                                .longName(BASE_ARG)
                                 .required(false)
                                 .type(String.class)
                                 .build(),
                         CommandOption.with()
                                 .shortName('q')
-                                .longName("quote")
+                                .longName(QUOTE_ARG)
                                 .required(false)
                                 .type(String.class)
                                 .build(),
                         CommandOption.with()
                                 .shortName('p')
-                                .longName("price")
+                                .longName(PRICE_ARG)
                                 .required(true)
                                 .type(String.class)
                                 .build(),
                         CommandOption.with()
                                 .shortName('d')
-                                .longName("date")
+                                .longName(DATE_ARG)
                                 .required(false)
                                 .type(String.class)
                                 .build()
@@ -54,12 +55,13 @@ public class QuoteCommands {
                 .availabilityProvider(availabilityProvider())
                 .exitStatusExceptionMapper(exceptionMapper())
                 .execute(ctx -> {
-                    String baseSymbol = argOrOption(ctx, 0, 'b', "base");
-                    if (baseSymbol == null) throw new IllegalArgumentException(required("base"));
-                    String quoteSymbol = argOrOption(ctx, 1, 'q', "quote");
-                    if (quoteSymbol == null) throw new IllegalArgumentException(required("quote"));
-                    String price = getOptionOrError(ctx, 'p', "price", required("price"));
-                    String date = getOptionOrDefault(ctx, 'd', "date", null);
+                    String baseSymbol = argOrOption(ctx, 0, 'b', BASE_ARG);
+                    if (baseSymbol == null) throw new IllegalArgumentException(QUOTE_SET_BASE_ARG_ERROR);
+                    String quoteSymbol = argOrOption(ctx, 1, 'q', QUOTE_ARG);
+                    if (quoteSymbol == null) throw new IllegalArgumentException(QUOTE_SET_QUOTE_ARG_ERROR);
+                    String price = argOrOption(ctx, 2, 'p', PRICE_ARG);
+                    if (price == null) throw new IllegalArgumentException(QUOTE_SET_PRICE_ARG_ERROR);
+                    String date = getOptionOrDefault(ctx, 'd', DATE_ARG, null);
                     marketQuoteService.setMarketQuote(new MarketQuoteDto(
                             baseSymbol,
                             quoteSymbol,
@@ -73,18 +75,18 @@ public class QuoteCommands {
     public Command getQuote() {
         return Command.builder()
                 .name("quote get")
-                .description("Look up a stored market quote")
-                .help("Look up a stored market quote. Usage: `quote get AAPL USD` or `quote get --base AAPL --quote USD`")
+                .description(QUOTE_GET_COMMAND_DESCRIPTION)
+                .help(QUOTE_GET_COMMAND_HELP)
                 .options(
                         CommandOption.with()
                                 .shortName('b')
-                                .longName("base")
+                                .longName(BASE_ARG)
                                 .required(false)
                                 .type(String.class)
                                 .build(),
                         CommandOption.with()
                                 .shortName('q')
-                                .longName("quote")
+                                .longName(QUOTE_ARG)
                                 .required(false)
                                 .type(String.class)
                                 .build()
@@ -92,10 +94,10 @@ public class QuoteCommands {
                 .availabilityProvider(availabilityProvider())
                 .exitStatusExceptionMapper(exceptionMapper())
                 .execute(ctx -> {
-                    String baseSymbol = argOrOption(ctx, 0, 'b', "base");
-                    if (baseSymbol == null) throw new IllegalArgumentException(required("base"));
-                    String quoteSymbol = argOrOption(ctx, 1, 'q', "quote");
-                    if (quoteSymbol == null) throw new IllegalArgumentException(required("quote"));
+                    String baseSymbol = argOrOption(ctx, 0, 'b', BASE_ARG);
+                    if (baseSymbol == null) throw new IllegalArgumentException(QUOTE_GET_BASE_ARG_ERROR);
+                    String quoteSymbol = argOrOption(ctx, 1, 'q', QUOTE_ARG);
+                    if (quoteSymbol == null) throw new IllegalArgumentException(QUOTE_GET_QUOTE_ARG_ERROR);
 
                     List<MarketQuoteDto> marketQuotes = marketQuoteService.getMarketQuote(baseSymbol, quoteSymbol);
                     marketQuotes.forEach(quote -> ctx.outputWriter().println("Price of " + quote.baseSymbol() + " in " + quote.quoteSymbol() + " is " + quote.price() + " (as of " + quote.marketQuoteDate() + ")"));
@@ -106,18 +108,18 @@ public class QuoteCommands {
     public Command fetchQuote() {
         return Command.builder()
                 .name("quote fetch")
-                .description("Fetch the latest quote from Yahoo Finance and save it")
-                .help("Fetch the latest quote from Yahoo Finance and save it. Usage: `quote fetch AAPL USD` or `quote fetch --base AAPL --quote USD`")
+                .description(QUOTE_FETCH_COMMAND_DESCRIPTION)
+                .help(QUOTE_FETCH_COMMAND_HELP)
                 .options(
                         CommandOption.with()
                                 .shortName('b')
-                                .longName("base")
+                                .longName(BASE_ARG)
                                 .required(false)
                                 .type(String.class)
                                 .build(),
                         CommandOption.with()
                                 .shortName('q')
-                                .longName("quote")
+                                .longName(QUOTE_ARG)
                                 .required(false)
                                 .type(String.class)
                                 .build()
@@ -125,10 +127,10 @@ public class QuoteCommands {
                 .availabilityProvider(availabilityProvider())
                 .exitStatusExceptionMapper(exceptionMapper())
                 .execute(ctx -> {
-                    String baseSymbol = argOrOption(ctx, 0, 'b', "base");
-                    if (baseSymbol == null) throw new IllegalArgumentException(required("base"));
-                    String quoteSymbol = argOrOption(ctx, 1, 'q', "quote");
-                    if (quoteSymbol == null) throw new IllegalArgumentException(required("quote"));
+                    String baseSymbol = argOrOption(ctx, 0, 'b', BASE_ARG);
+                    if (baseSymbol == null) throw new IllegalArgumentException(QUOTE_FETCH_BASE_ARG_ERROR);
+                    String quoteSymbol = argOrOption(ctx, 1, 'q', QUOTE_ARG);
+                    if (quoteSymbol == null) throw new IllegalArgumentException(QUOTE_FETCH_QUOTE_ARG_ERROR);
 
                     marketQuoteService.fetchAndSaveQuote(baseSymbol, quoteSymbol);
                     ctx.outputWriter().println("Saved quote: " + baseSymbol + " -> " + quoteSymbol);
@@ -139,8 +141,8 @@ public class QuoteCommands {
     public Command listQuotes() {
         return Command.builder()
                 .name("quote list")
-                .description("List all stored market quotes")
-                .help("List the latest quote for each asset pair. Usage: `quote list`")
+                .description(QUOTE_LIST_COMMAND_DESCRIPTION)
+                .help(QUOTE_LIST_COMMAND_HELP)
                 .availabilityProvider(availabilityProvider())
                 .exitStatusExceptionMapper(exceptionMapper())
                 .execute(ctx -> {

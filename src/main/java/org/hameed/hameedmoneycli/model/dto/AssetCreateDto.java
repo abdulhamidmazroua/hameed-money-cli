@@ -5,7 +5,6 @@ import org.hameed.hameedmoneycli.enums.AssetCategory;
 public record AssetCreateDto (
         String name,
         String symbol,
-        AssetCategory category,
-        Boolean isTradable
+        AssetCategory category
 ) {
 }

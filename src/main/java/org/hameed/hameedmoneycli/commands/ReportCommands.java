@@ -13,6 +13,7 @@ import org.springframework.shell.jline.tui.component.flow.SelectItem;
 import java.util.List;
 
 import static org.hameed.hameedmoneycli.util.CommandsUtil.*;
+import static org.hameed.hameedmoneycli.constants.CommandConstants.*;
 
 @Configuration
 @RequiredArgsConstructor
@@ -27,11 +28,11 @@ public class ReportCommands {
     public Command reportNetworth() {
         return Command.builder()
                 .name("report nw")
-                .description("Net worth statement valued in a currency")
-                .help("Generate a net worth statement (balance sheet) with all accounts converted to a target currency. Usage: `report nw EGP` or `report nw --currency EGP` (defaults to EGP).")
+                .description(REPORT_NW_COMMAND_DESCRIPTION)
+                .help(REPORT_NW_COMMAND_HELP)
                 .options(CommandOption.with()
                         .shortName('c')
-                        .longName("currency")
+                        .longName(CURRENCY_ARG)
                         .required(false)
                         .type(String.class)
                         .defaultValue("EGP")
@@ -40,7 +41,7 @@ public class ReportCommands {
                 .availabilityProvider(availabilityProvider())
                 .exitStatusExceptionMapper(exceptionMapper())
                 .execute(ctx -> {
-                    String currency = argOrOption(ctx, 0, 'c', "currency", "EGP");
+                    String currency = argOrOption(ctx, 0, 'c', CURRENCY_ARG, "EGP");
                     reportService.generateNetworthReport(currency).terminalPrint(ctx.outputWriter());
                 });
     }
@@ -49,8 +50,8 @@ public class ReportCommands {
     public Command reportDataIntegrity() {
         return Command.builder()
                 .name("report data-integrity")
-                .description("Ledger data integrity report")
-                .help("Generate a data integrity report showing total debits vs credits per asset, and listing opening balances, increase adjustments and decrease adjustments. Usage: `report data-integrity`")
+                .description(REPORT_DATA_INTEGRITY_COMMAND_DESCRIPTION)
+                .help(REPORT_DATA_INTEGRITY_COMMAND_HELP)
                 .availabilityProvider(availabilityProvider())
                 .exitStatusExceptionMapper(exceptionMapper())
                 .execute(ctx -> {
@@ -62,18 +63,18 @@ public class ReportCommands {
     public Command auditAccount() {
         return Command.builder()
                 .name("audit account")
-                .description("Verify an account's computed balance")
-                .help("Verify an account's computed balance matches expected. Usage: `audit account 5` or `audit account --id 5` or `audit account --name \"Foo\"`")
+                .description(AUDIT_ACCOUNT_COMMAND_DESCRIPTION)
+                .help(AUDIT_ACCOUNT_COMMAND_HELP)
                 .options(
                         CommandOption.with()
                                 .shortName('i')
-                                .longName("id")
+                                .longName(ID_ARG)
                                 .required(false)
                                 .type(String.class)
                                 .build(),
                         CommandOption.with()
                                 .shortName('n')
-                                .longName("name")
+                                .longName(NAME_ARG)
                                 .required(false)
                                 .type(String.class)
                                 .build()
@@ -91,8 +92,8 @@ public class ReportCommands {
                             accountId = accountService.getAccountByName(raw).getId();
                         }
                     } else {
-                        String idStr = getOptionOrDefault(ctx, 'i', "id", null);
-                        String name = getOptionOrDefault(ctx, 'n', "name", null);
+                        String idStr = getOptionOrDefault(ctx, 'i', ID_ARG, null);
+                        String name = getOptionOrDefault(ctx, 'n', NAME_ARG, null);
                         if (idStr != null) {
                             accountId = Long.valueOf(idStr);
                         } else if (name != null) {
@@ -122,8 +123,8 @@ public class ReportCommands {
     public Command auditTrail() {
         return Command.builder()
                 .name("audit trail")
-                .description("Full ledger data integrity check")
-                .help("Run a full ledger audit checking every account's balance against its computed total. Usage: `audit trail`")
+                .description(AUDIT_TRAIL_COMMAND_DESCRIPTION)
+                .help(AUDIT_TRAIL_COMMAND_HELP)
                 .availabilityProvider(availabilityProvider())
                 .exitStatusExceptionMapper(exceptionMapper())
                 .execute(ctx -> {

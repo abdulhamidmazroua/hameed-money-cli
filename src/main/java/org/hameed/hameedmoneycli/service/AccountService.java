@@ -2,11 +2,10 @@ package org.hameed.hameedmoneycli.service;
 
 import lombok.RequiredArgsConstructor;
 import org.hameed.hameedmoneycli.enums.AccountType;
-import org.hameed.hameedmoneycli.enums.AssetCategory;
 import org.hameed.hameedmoneycli.model.AccountSpecification;
 import org.hameed.hameedmoneycli.model.dto.AccountCreateDto;
 import org.hameed.hameedmoneycli.model.dto.AccountFilter;
-import org.hameed.hameedmoneycli.model.dto.AssetCreateDto;
+
 import org.hameed.hameedmoneycli.model.entity.Account;
 import org.hameed.hameedmoneycli.model.entity.Asset;
 import org.hameed.hameedmoneycli.repository.AccountRepository;
@@ -109,15 +108,8 @@ public class AccountService {
     }
 
     @Transactional
-    public Account createAccountWithOpeningBalance(String name, Long parentAccountId, String assetSymbol, String categoryStr, String balanceStr) {
-        AssetCategory category = AssetCategory.fromString(categoryStr);
-        Asset asset;
-        try {
-            asset = assetService.getAssetBySymbolAndCategory(assetSymbol, category);
-        } catch (IllegalArgumentException e) {
-            assetService.createAsset(new AssetCreateDto(assetSymbol, assetSymbol, category, category.isTradable()));
-            asset = assetService.getAssetBySymbolAndCategory(assetSymbol, category);
-        }
+    public Account createAccountWithOpeningBalance(String name, Long parentAccountId, String assetSymbol, String balanceStr) {
+        Asset asset = assetService.getAssetBySymbol(assetSymbol);
 
         Account account = createAccount(new AccountCreateDto(
                 name,

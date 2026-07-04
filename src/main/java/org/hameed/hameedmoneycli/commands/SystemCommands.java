@@ -17,6 +17,7 @@ import java.math.BigDecimal;
 import java.nio.file.Path;
 
 import static org.hameed.hameedmoneycli.util.CommandsUtil.*;
+import static org.hameed.hameedmoneycli.constants.CommandConstants.*;
 
 @Configuration
 @RequiredArgsConstructor
@@ -32,33 +33,33 @@ public class SystemCommands {
     public Command ingestTransactions() {
         return Command.builder()
                 .name("ingest")
-                .description("Import transactions from a CSV file")
-                .help("Import transactions from a CSV file. Usage: `ingest HSBC_APP /path/to/transactions.csv` or `ingest --source HSBC_APP --file-path /path/to/transactions.csv`")
+                .description(INGEST_COMMAND_DESCRIPTION)
+                .help(INGEST_COMMAND_HELP)
                 .availabilityProvider(availabilityProvider())
                 .exitStatusExceptionMapper(exceptionMapper())
                 .options(
                         CommandOption.with()
                                 .shortName('f')
-                                .longName("file-path")
+                                .longName(FILE_PATH_ARG)
                                 .required(false)
                                 .type(String.class)
                                 .build(),
                         CommandOption.with()
                                 .shortName('s')
-                                .longName("source")
+                                .longName(SOURCE_ARG)
                                 .required(false)
                                 .type(String.class)
                                 .build()
                 )
                 .execute(ctx -> {
-                    String source = argOrOption(ctx, 0, 's', "source");
-                    if (source == null) throw new IllegalArgumentException(required("source"));
-                    String filePath = argOrOption(ctx, 1, 'f', "file-path");
-                    if (filePath == null) throw new IllegalArgumentException(required("file-path"));
+                    String source = argOrOption(ctx, 0, 's', SOURCE_ARG);
+                    if (source == null) throw new IllegalArgumentException(INGEST_SOURCE_ARG_ERROR);
+                    String filePath = argOrOption(ctx, 1, 'f', FILE_PATH_ARG);
+                    if (filePath == null) throw new IllegalArgumentException(INGEST_FILE_PATH_ARG_ERROR);
                     try {
                         ingestionService.ingestTransactions(source, filePath, ctx);
                     } catch (Exception e) {
-                        throw new IllegalStateException("Ingestion failed: " + e.getMessage(), e);
+                        throw new IllegalStateException(String.format(INGEST_FAILED, e.getMessage()), e);
                     }
                 });
     }
@@ -67,27 +68,27 @@ public class SystemCommands {
     public Command addRule() {
         return Command.builder()
                 .name("rule add")
-                .description("Add a transaction ingestion rule")
-                .help("Add a transaction ingestion rule. Usage: `rule add \"regex\" 5` or `rule add --pattern \"regex\" --target 5`")
+                .description(RULE_ADD_COMMAND_DESCRIPTION)
+                .help(RULE_ADD_COMMAND_HELP)
                 .options(CommandOption.with()
                                 .shortName('p')
-                                .longName("pattern")
+                                .longName(PATTERN_ARG)
                                 .required(false)
                                 .type(String.class)
                                 .build(),
                         CommandOption.with()
                                 .shortName('t')
-                                .longName("target")
+                                .longName(TARGET_ARG)
                                 .required(false)
                                 .type(String.class)
                                 .build())
                 .availabilityProvider(availabilityProvider())
                 .exitStatusExceptionMapper(exceptionMapper())
                 .execute(ctx -> {
-                    String match = argOrOption(ctx, 0, 'p', "pattern");
-                    if (match == null) throw new IllegalArgumentException(required("pattern"));
-                    String target = argOrOption(ctx, 1, 't', "target");
-                    if (target == null) throw new IllegalArgumentException(required("target"));
+                    String match = argOrOption(ctx, 0, 'p', PATTERN_ARG);
+                    if (match == null) throw new IllegalArgumentException(RULE_ADD_PATTERN_ARG_ERROR);
+                    String target = argOrOption(ctx, 1, 't', TARGET_ARG);
+                    if (target == null) throw new IllegalArgumentException(RULE_ADD_TARGET_ARG_ERROR);
 
                     ingestionRuleService.addRule(new RuleCreateDto(
                             match,
@@ -100,24 +101,24 @@ public class SystemCommands {
     public Command hmcInit() {
         return Command.builder()
                 .name("hmc init")
-                .description("Post an opening balance to an account")
-                .help("Post an opening balance to an existing account. Usage: `hmc init \"EGP:HSBC Current Account\" --balance 50000` or `hmc init --account \"EGP:HSBC Current Account\" --balance 50000`")
+                .description(HMC_INIT_COMMAND_DESCRIPTION)
+                .help(HMC_INIT_COMMAND_HELP)
                 .options(
                         CommandOption.with()
                                 .shortName('a')
-                                .longName("account")
+                                .longName(ACCOUNT_ARG)
                                 .required(false)
                                 .type(String.class)
                                 .build(),
                         CommandOption.with()
                                 .shortName('i')
-                                .longName("account-id")
+                                .longName(ACCOUNT_ID_ARG)
                                 .required(false)
                                 .type(String.class)
                                 .build(),
                         CommandOption.with()
                                 .shortName('b')
-                                .longName("balance")
+                                .longName(BALANCE_ARG)
                                 .required(true)
                                 .type(String.class)
                                 .build()
@@ -125,9 +126,10 @@ public class SystemCommands {
                 .availabilityProvider(availabilityProvider())
                 .exitStatusExceptionMapper(exceptionMapper())
                 .execute(ctx -> {
-                    String name = argOrOption(ctx, 0, 'a', "account");
-                    String idStr = getOptionOrDefault(ctx, 'i', "account-id", null);
-                    String balance = getOptionOrError(ctx, 'b', "balance", required("balance"));
+                    String name = argOrOption(ctx, 0, 'a', ACCOUNT_ARG);
+                    String idStr = getOptionOrDefault(ctx, 'i', ACCOUNT_ID_ARG, null);
+                    String balance = argOrOption(ctx, 1, 'b', BALANCE_ARG);
+                    if (balance == null) throw new IllegalArgumentException(HMC_INIT_BALANCE_ARG_ERROR);
 
                     Long accountId;
                     if (idStr != null) {
@@ -135,7 +137,7 @@ public class SystemCommands {
                     } else if (name != null) {
                         accountId = accountService.getAccountByName(name).getId();
                     } else {
-                        throw new IllegalArgumentException("Either --account <name>, --account-id <id>, or a positional account name is required.");
+                        throw new IllegalArgumentException(HMC_INIT_ACCOUNT_NOT_FOUND);
                     }
 
                     systemAdjustmentService.openAccountBalance(accountId, new BigDecimal(balance));
@@ -147,24 +149,24 @@ public class SystemCommands {
     public Command hmcReconcile() {
         return Command.builder()
                 .name("hmc reconcile")
-                .description("Reconcile an account to its actual balance")
-                .help("Reconcile an account's computed balance to its actual balance via an adjustment transaction. Usage: `hmc reconcile \"EGP:HSBC Current Account\" --actual 49990` or `hmc reconcile --account \"EGP:HSBC Current Account\" --actual 49990`")
+                .description(HMC_RECONCILE_COMMAND_DESCRIPTION)
+                .help(HMC_RECONCILE_COMMAND_HELP)
                 .options(
                         CommandOption.with()
                                 .shortName('a')
-                                .longName("account")
+                                .longName(ACCOUNT_ARG)
                                 .required(false)
                                 .type(String.class)
                                 .build(),
                         CommandOption.with()
                                 .shortName('i')
-                                .longName("account-id")
+                                .longName(ACCOUNT_ID_ARG)
                                 .required(false)
                                 .type(String.class)
                                 .build(),
                         CommandOption.with()
                                 .shortName('c')
-                                .longName("actual")
+                                .longName(ACTUAL_ARG)
                                 .required(true)
                                 .type(String.class)
                                 .build()
@@ -172,9 +174,10 @@ public class SystemCommands {
                 .availabilityProvider(availabilityProvider())
                 .exitStatusExceptionMapper(exceptionMapper())
                 .execute(ctx -> {
-                    String name = argOrOption(ctx, 0, 'a', "account");
-                    String idStr = getOptionOrDefault(ctx, 'i', "account-id", null);
-                    String actual = getOptionOrError(ctx, 'c', "actual", required("actual"));
+                    String name = argOrOption(ctx, 0, 'a', ACCOUNT_ARG);
+                    String idStr = getOptionOrDefault(ctx, 'i', ACCOUNT_ID_ARG, null);
+                    String actual = argOrOption(ctx, 1, 'c', ACTUAL_ARG);
+                    if (actual == null) throw new IllegalArgumentException(HMC_RECONCILE_ACTUAL_ARG_ERROR);
 
                     Long accountId;
                     if (idStr != null) {
@@ -182,7 +185,7 @@ public class SystemCommands {
                     } else if (name != null) {
                         accountId = accountService.getAccountByName(name).getId();
                     } else {
-                        throw new IllegalArgumentException("Either --account <name>, --account-id <id>, or a positional account name is required.");
+                        throw new IllegalArgumentException(HMC_RECONCILE_ACCOUNT_NOT_FOUND);
                     }
 
                     systemAdjustmentService.adjustBalance(accountId, new BigDecimal(actual));
@@ -194,11 +197,11 @@ public class SystemCommands {
     public Command dbBackup() {
         return Command.builder()
                 .name("hmc db backup")
-                .description("Backup the database via pg_dump")
-                .help("Backup the database using pg_dump. Usage: `hmc db backup` or `hmc db backup --output ~/hmc/backups`")
+                .description(HMC_DB_BACKUP_COMMAND_DESCRIPTION)
+                .help(HMC_DB_BACKUP_COMMAND_HELP)
                 .options(
                         CommandOption.with()
-                                .longName("output")
+                                .longName(OUTPUT_ARG)
                                 .shortName('o')
                                 .required(false)
                                 .type(String.class)
@@ -209,7 +212,7 @@ public class SystemCommands {
                 .exitStatusExceptionMapper(exceptionMapper())
                 .execute(ctx -> {
                     try {
-                        String outputDir = getOptionOrDefault(ctx, 'o', "output", "~/hmc/backups");
+                        String outputDir = getOptionOrDefault(ctx, 'o', OUTPUT_ARG, "~/hmc/backups");
                         outputDir = outputDir.replaceFirst("^~", System.getProperty("user.home"));
 
                         Path backupFile = backupService.backup(outputDir);
@@ -224,8 +227,8 @@ public class SystemCommands {
     public Command showInfo() {
         return Command.builder()
                 .name("info")
-                .description("Show the financial data pipeline guide")
-                .help("Display the financial data pipeline guide showing all available commands and how they fit together. Usage: `info`")
+                .description(INFO_COMMAND_DESCRIPTION)
+                .help(INFO_COMMAND_HELP)
                 .availabilityProvider(availabilityProvider())
                 .execute(ctx -> {
                     ctx.outputWriter().print(CommandsUtil.guidelines());

@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.hameed.hameedmoneycli.util.CommandsUtil.*;
+import static org.hameed.hameedmoneycli.constants.CommandConstants.*;
 
 @Configuration
 @RequiredArgsConstructor
@@ -34,33 +35,33 @@ public class AccountCommands {
     public Command createAccount() {
         return Command.builder()
                 .name("account create")
-                .description("Create a new account")
-                .help("Create a new account. Usage: `account create --name \"Cash Account\" --parent-account-id 3` or `--parent-account-name \"Cash\"`")
+                .description(ACCOUNT_CREATE_COMMAND_DESCRIPTION)
+                .help(ACCOUNT_CREATE_COMMAND_HELP)
                 .options(CommandOption.with()
                                 .shortName('n')
-                                .longName("name")
+                                .longName(NAME_ARG)
                                 .required(true)
                                 .type(String.class)
                                 .build(),
                         CommandOption.with()
                                 .shortName('p')
-                                .longName("parent-account-id")
+                                .longName(PARENT_ACCOUNT_ID_ARG)
                                 .required(false)
                                 .type(String.class)
                                 .build(),
                         CommandOption.with()
                                 .shortName('P')
-                                .longName("parent-account-name")
+                                .longName(PARENT_ACCOUNT_NAME_ARG)
                                 .required(false)
                                 .type(String.class)
                                 .build())
                 .exitStatusExceptionMapper(exceptionMapper())
                 .availabilityProvider(availabilityProvider())
                 .execute(ctx -> {
-                    String usage = "Usage: `account create --name \"Cash Account\" --parent-account-id 3`";
-                    String accountName = getOptionOrError(ctx, 'n', "name", "<name> option is missing. \n" + usage);
-                    String parentAccountId = getOptionOrDefault(ctx, 'p', "parent-account-id", null);
-                    String parentAccountName = getOptionOrDefault(ctx, 'P', "parent-account-name", null);
+                    String accountName = argOrOption(ctx, 0, 'n', NAME_ARG);
+                    if (accountName == null) throw new IllegalArgumentException(ACCOUNT_CREATE_NAME_ARG_ERROR);
+                    String parentAccountId = getOptionOrDefault(ctx, 'p', PARENT_ACCOUNT_ID_ARG, null);
+                    String parentAccountName = getOptionOrDefault(ctx, 'P', PARENT_ACCOUNT_NAME_ARG, null);
 
                     if (parentAccountId == null && parentAccountName != null) {
                         parentAccountId = accountService.getAccountByName(parentAccountName).getId().toString();
@@ -103,52 +104,47 @@ public class AccountCommands {
     public Command initAccount() {
         return Command.builder()
                 .name("account init")
-                .description("Create an account and post its opening balance in one shot")
-                .help("Create an account and post its opening balance. Usage: `account init --name \"Wallet\" --asset EGP --balance 1000 --parent-account-id 5` \nNote: the account name is auto-prefixed with the asset symbol (e.g., \"EGP:Wallet\"). Also accepts --category (default cash). If the asset does not exist, it is registered automatically.")
+                .description(INIT_ACCOUNT_COMMAND_DESCRIPTION)
+                .help(INIT_ACCOUNT_COMMAND_HELP)
                 .options(
                         CommandOption.with()
                                 .shortName('n')
-                                .longName("name")
+                                .longName(NAME_ARG)
                                 .required(true)
                                 .type(String.class)
                                 .build(),
                         CommandOption.with()
                                 .shortName('p')
-                                .longName("parent-account-id")
+                                .longName(PARENT_ACCOUNT_ID_ARG)
                                 .required(false)
                                 .type(String.class)
                                 .build(),
                         CommandOption.with()
                                 .shortName('a')
-                                .longName("asset")
+                                .longName(ASSET_ARG)
                                 .required(true)
                                 .type(String.class)
                                 .build(),
                         CommandOption.with()
-                                .shortName('c')
-                                .longName("category")
-                                .required(false)
-                                .type(String.class)
-                                .build(),
-                        CommandOption.with()
                                 .shortName('b')
-                                .longName("balance")
+                                .longName(BALANCE_ARG)
                                 .required(true)
                                 .type(String.class)
                                 .build())
                 .availabilityProvider(availabilityProvider())
                 .exitStatusExceptionMapper(exceptionMapper())
                 .execute(ctx -> {
-                    String usage = "Usage: `account init --name \"XYZ Fund\" --asset XYZ --balance 1000`";
-                    String accountName = getOptionOrError(ctx, 'n', "name", "<name> option is missing. \n" + usage);
-                    String parentId = getOptionOrDefault(ctx, 'p', "parent-account-id", null);
-                    String assetSymbol = getOptionOrError(ctx, 'a', "asset", "<asset> option is missing. \n" + usage);
-                    String categoryArg = getOptionOrDefault(ctx, 'c', "category", "cash");
-                    String balanceStr = getOptionOrError(ctx, 'b', "balance", "<balance> option is missing. \n" + usage);
+                    String accountName = argOrOption(ctx, 0, 'n', NAME_ARG);
+                    if (accountName == null) throw new IllegalArgumentException(INIT_ACCOUNT_NAME_ARG_ERROR);
+                    String parentId = getOptionOrDefault(ctx, 'p', PARENT_ACCOUNT_ID_ARG, null);
+                    String assetSymbol = argOrOption(ctx, 1, 'a', ASSET_ARG);
+                    if (assetSymbol == null) throw new IllegalArgumentException(INIT_ACCOUNT_ASSET_ARG_ERROR);
+                    String balanceStr = argOrOption(ctx, 2, 'b', BALANCE_ARG);
+                    if (balanceStr == null) throw new IllegalArgumentException(INIT_ACCOUNT_BALANCE_ARG_ERROR);
 
                     Long parentAccountId = parentId != null && !parentId.isBlank() ? Long.valueOf(parentId) : null;
 
-                    Account account = accountService.createAccountWithOpeningBalance(accountName, parentAccountId, assetSymbol, categoryArg, balanceStr);
+                    Account account = accountService.createAccountWithOpeningBalance(accountName, parentAccountId, assetSymbol, balanceStr);
                     ctx.outputWriter().println("Account '" + account.getName() + "' created with opening balance " + balanceStr + " " + assetSymbol + ".");
                 });
     }
@@ -157,8 +153,8 @@ public class AccountCommands {
     public Command listAccounts() {
         return Command.builder()
                 .name("account list")
-                .description("List all accounts in a tree view")
-                .help("List all accounts grouped by type (ASSET, LIABILITY, INCOME, EXPENSE, SYSTEM) in a hierarchical tree. Usage: `account list`")
+                .description(ACCOUNT_LIST_COMMAND_DESCRIPTION)
+                .help(ACCOUNT_LIST_COMMAND_HELP)
                 .availabilityProvider(availabilityProvider())
                 .exitStatusExceptionMapper(exceptionMapper())
                 .execute(ctx -> {
@@ -179,28 +175,28 @@ public class AccountCommands {
     public Command findAccounts() {
         return Command.builder()
                 .name("account find")
-                .description("Search accounts by keyword, type, or asset symbol")
-                .help("Search accounts by name (keyword), master type (ASSET, EXPENSE, etc.), or asset symbol. Usage: `account find hsbc` or `account find --type expense` or `account find --asset EGP` or `account find` (lists all)")
+                .description(ACCOUNT_FIND_COMMAND_DESCRIPTION)
+                .help(ACCOUNT_FIND_COMMAND_HELP)
                 .availabilityProvider(availabilityProvider())
                 .exitStatusExceptionMapper(exceptionMapper())
                 .options(
                         CommandOption.with()
                                 .shortName('t')
-                                .longName("type")
+                                .longName(TYPE_ARG)
                                 .required(false)
                                 .type(String.class)
                                 .build(),
                         CommandOption.with()
                                 .shortName('a')
-                                .longName("asset")
+                                .longName(ASSET_ARG)
                                 .required(false)
                                 .type(String.class)
                                 .build()
                 )
                 .execute(ctx -> {
-                    String keyword = argOrOption(ctx, 0, 'k', "keyword");
-                    String masterType = getOptionOrDefault(ctx, 't', "type", null);
-                    String assetSymbol = getOptionOrDefault(ctx, 'a', "asset", null);
+                    String keyword = argOrOption(ctx, 0, 'k', KEYWORD_ARG);
+                    String masterType = getOptionOrDefault(ctx, 't', TYPE_ARG, null);
+                    String assetSymbol = getOptionOrDefault(ctx, 'a', ASSET_ARG, null);
 
                     List<Account> results = accountService.findAccounts(new AccountFilter(keyword, masterType, assetSymbol));
 
@@ -228,18 +224,18 @@ public class AccountCommands {
     public Command deleteAccount() {
         return Command.builder()
                 .name("account delete")
-                .description("Delete an account")
-                .help("Delete an account. Usage: `account delete 5` or `account delete --account-id 5`")
+                .description(DELETE_ACCOUNT_COMMAND_DESCRIPTION)
+                .help(DELETE_ACCOUNT_COMMAND_HELP)
                 .options(CommandOption.with()
                         .shortName('a')
-                        .longName("account-id")
+                        .longName(ACCOUNT_ID_ARG)
                         .required(false)
                         .type(String.class)
                         .build())
                 .exitStatusExceptionMapper(exceptionMapper())
                 .availabilityProvider(availabilityProvider())
                 .execute(ctx -> {
-                    String accountIdStr = argOrOption(ctx, 0, 'a', "account-id");
+                    String accountIdStr = argOrOption(ctx, 0, 'a', ACCOUNT_ID_ARG);
 
                     if (accountIdStr == null) {
                         List<SelectItem> accountChoices = accountService.getAllAccounts().stream()

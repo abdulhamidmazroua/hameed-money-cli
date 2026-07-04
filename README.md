@@ -100,7 +100,7 @@ hmc db backup --output ~/hmc/backups     # From inside the CLI
 # 1. Register a cash asset
 hmc asset register "Egyptian Pound" EGP --category cash
 
-# 2. Create your account and post an opening balance
+# 2. Create your account and post an opening balance (asset must exist first)
 hmc account init --name "My Wallet" --asset EGP --balance 5000
 
 # 3. Set a market quote
@@ -257,6 +257,14 @@ Pulls all EGX-listed stocks. Supported categories: `stock`, `etf`, `fund`. Suppo
 
 ### 2. Create an account
 
+Register the asset first if it doesn't exist:
+
+```bash
+hmc asset register "Commercial International Bank" COMI.CA --category stock
+```
+
+Then create the account:
+
 ```bash
 hmc account create --name "CIB Shares" --parent-account-id 5
 ```
@@ -305,7 +313,7 @@ hmc ingest HSBC_APP ~/Downloads/transactions.csv
 |---------|--------------|
 | `cat-list` | List all asset categories |
 | `asset list` | List all registered assets |
-| `asset register <name> <symbol> [--category <cat>]` | Register a new asset |
+| `asset register <name> <symbol> [--category <cat>]` | Register a new asset (`isTradable` is inferred from category) |
 | `asset fetch <category> <exchange>` | Sync instruments from the market data provider |
 
 ### Account Management
@@ -314,7 +322,7 @@ hmc ingest HSBC_APP ~/Downloads/transactions.csv
 |---------|--------------|
 | `account list` | Display the colour-coded account tree |
 | `account create --name <n> [--parent-account-id <id>]` | Create an account (interactive pickers) |
-| `account init --name <n> --asset <symbol> --balance <amt>` | One-shot: account + SYSTEM trio + opening balance |
+| `account init --name <n> --asset <symbol> --balance <amt>` | One-shot: account + SYSTEM trio + opening balance (asset must exist first via `asset register`) |
 | `account delete <id>` | Delete an account |
 
 ### Transaction Management

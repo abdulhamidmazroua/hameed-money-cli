@@ -19,35 +19,8 @@ echo ""
 # ---------------------------------------------------------------
 info "Checking prerequisites..."
 
-command -v docker >/dev/null 2>&1 || err "Docker is required. Install from https://docker.com"
-ok "Docker found"
-
 command -v native-image >/dev/null 2>&1 || err "GraalVM native-image not found. Install GraalVM 25+ via SDKMAN: sdk install java 25.0.2-graalce"
 ok "GraalVM native-image found ($(native-image --version 2>&1 | head -1))"
-
-# ---------------------------------------------------------------
-info "Starting PostgreSQL..."
-docker compose up -d db
-
-info "Waiting for PostgreSQL to be healthy..."
-for i in $(seq 1 30); do
-  if docker compose exec -T db pg_isready -U hmc-user -d hmc-db >/dev/null 2>&1; then
-    ok "PostgreSQL is ready"
-    break
-  fi
-  if [ "$i" -eq 30 ]; then err "PostgreSQL did not become healthy in time"; fi
-  sleep 1
-done
-
-# ---------------------------------------------------------------
-info "Running database migrations..."
-./mvnw liquibase:update \
-  -Dliquibase.url=jdbc:postgresql://localhost:5432/hmc-db \
-  -Dliquibase.username=hmc-user \
-  -Dliquibase.password=hmc-password \
-  -Dliquibase.defaultSchemaName=app_data \
-  -q
-ok "Database migrations applied"
 
 # ---------------------------------------------------------------
 info "Building native binary (this may take a couple of minutes)..."
@@ -78,7 +51,4 @@ echo ""
 echo "  Quick start:"
 echo "    hmc init --name \"My Wallet\" --asset EGP --balance 5000"
 echo "    hmc report nw EGP"
-echo ""
-echo "  Stop the database:  docker compose down"
-echo "  View logs:          docker compose logs -f"
 echo ""

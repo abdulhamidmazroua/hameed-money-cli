@@ -63,10 +63,9 @@ After install, use `hmc` from anywhere.
 ### Manual steps (if you prefer)
 
 ```bash
-docker compose up -d db                          # Start PostgreSQL
 ./mvnw -Pnative native:compile -DskipTests       # Build native binary
 cp target/hameed-money-cli ~/.local/bin/hmc      # Install to PATH
-hmc help                                          # Triggers Liquibase migrations
+hmc help                                          # Creates ~/.hmc/hmc.db + runs migrations on first startup
 ```
 
 ### Configuration via environment variables

@@ -12,7 +12,7 @@ import java.time.Instant;
 
 @Entity
 @EntityListeners(AuditingEntityListener.class)
-@Table(name = "ingestion_rule")
+@Table(name = "ingestion_rules")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -33,7 +33,7 @@ public class IngestionRule {
     @Column(nullable = false)
     private Integer priority = 0;
 
-    @Column(nullable = false, updatable = false)
+    @Column(nullable = false, updatable = false, columnDefinition = "TEXT NOT NULL DEFAULT (datetime('now'))")
     @CreatedDate
     private Instant createdAt;
 

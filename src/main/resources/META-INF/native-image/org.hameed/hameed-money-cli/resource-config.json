@@ -3,7 +3,9 @@
     "includes": [
       {"pattern": "org/springframework/shell/component/.*\\.stg$"},
       {"pattern": "template/.*\\.stg$"},
-      {"pattern": "completion/.*\\.stg$"}
+      {"pattern": "completion/.*\\.stg$"},
+      {"pattern": "db/migration/.*\\.sql$"},
+      {"pattern": "META-INF/services/org/jline/terminal/provider/.*"}
     ]
   }
 }

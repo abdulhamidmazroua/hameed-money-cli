@@ -10,5 +10,19 @@
     "allDeclaredConstructors": true,
     "allDeclaredMethods": true,
     "allRecordComponents": true
+  },
+  {
+    "name": "org.hibernate.community.dialect.SQLiteDialect",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.jline.terminal.impl.jansi.JansiTerminalProvider",
+    "allDeclaredConstructors": true,
+    "allPublicConstructors": true
+  },
+  {
+    "name": "org.jline.terminal.impl.exec.ExecTerminalProvider",
+    "allDeclaredConstructors": true,
+    "allPublicConstructors": true
   }
 ]

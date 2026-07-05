@@ -13,7 +13,7 @@ import java.time.Instant;
 
 @Entity
 @EntityListeners(AuditingEntityListener.class)
-@Table(name = "market_quote", uniqueConstraints = {
+@Table(name = "market_quotes", uniqueConstraints = {
         @UniqueConstraint(columnNames = {"base_asset_id", "quote_asset_id", "quote_date"})
 })
 @Data

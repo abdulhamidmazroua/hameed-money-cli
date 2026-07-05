@@ -4,14 +4,16 @@ set -euo pipefail
 BACKUP_DIR="${HOME}/hmc/backups"
 mkdir -p "${BACKUP_DIR}"
 
-OUT="${BACKUP_DIR}/hmc-$(date +%Y%m%d_%H%M%S).sql"
+OUT="${BACKUP_DIR}/hmc-$(date +%Y%m%d_%H%M%S).db"
 
-if ! command -v docker &>/dev/null; then
-  echo "ERROR: docker not found. Install from https://docker.com"
+DB_PATH="${HMC_DB_PATH:-$HOME/.hmc/hmc.db}"
+
+if [ ! -f "$DB_PATH" ]; then
+  echo "ERROR: Database not found at $DB_PATH"
+  echo "Set HMC_DB_PATH or run from the directory containing hmc.db"
   exit 1
 fi
 
-echo "==> Backing up database via Docker Compose..."
-docker compose exec -T my-postgres pg_dump -U hmc-user hmc-db > "${OUT}"
-
+echo "==> Backing up database..."
+cp "$DB_PATH" "$OUT"
 echo "Backup saved: ${OUT}"

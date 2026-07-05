@@ -12,7 +12,7 @@ import java.time.Instant;
 
 @Entity
 @EntityListeners(AuditingEntityListener.class)
-@Table(name = "source_system")
+@Table(name = "source_systems")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -29,12 +29,12 @@ public class SourceSystem {
     @Column(name = "code", nullable = false, length = 20, unique = true)
     private String code;
 
-    @OneToOne(fetch = FetchType.EAGER, optional = false)
+    @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "anchored_account_id", nullable = false)
     private Account anchoredAccount;
 
     @CreatedDate
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column(name = "created_at", nullable = false, updatable = false, columnDefinition = "TEXT NOT NULL DEFAULT (datetime('now'))")
     private Instant createdAt;
 
 }

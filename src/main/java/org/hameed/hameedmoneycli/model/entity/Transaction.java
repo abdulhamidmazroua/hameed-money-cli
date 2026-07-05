@@ -17,7 +17,7 @@ import java.util.Map;
 
 @Entity
 @EntityListeners(AuditingEntityListener.class)
-@Table(name = "transaction")
+@Table(name = "transactions")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -65,11 +65,11 @@ public class Transaction {
     @Column(name = "is_system_adjustment", nullable = false)
     private Boolean isSystemAdjustment = false;
 
-    @Column(columnDefinition = "jsonb")
+    @Column(columnDefinition = "TEXT")
     @JdbcTypeCode(SqlTypes.JSON)
     private Map<String, String> metadata;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column(name = "created_at", nullable = false, updatable = false, columnDefinition = "TEXT NOT NULL DEFAULT (datetime('now'))")
     @CreatedDate
     private Instant createdAt;
 

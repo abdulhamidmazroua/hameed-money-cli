@@ -12,7 +12,7 @@ import org.hibernate.type.SqlTypes;
 import java.util.Map;
 
 @Entity
-@Table(name = "asset", uniqueConstraints = @UniqueConstraint(columnNames = {"symbol", "category"}))
+@Table(name = "assets", uniqueConstraints = @UniqueConstraint(columnNames = {"symbol", "category"}))
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -33,7 +33,7 @@ public class Asset {
     @Enumerated(EnumType.STRING)
     private AssetCategory category; // 'STOCK', 'CASH', 'CRYPTO', 'COMMODITY'
 
-    @Column(columnDefinition = "jsonb")
+    @Column(columnDefinition = "TEXT")
     @JdbcTypeCode(SqlTypes.JSON)
     private Map<String, String> metadata;
 

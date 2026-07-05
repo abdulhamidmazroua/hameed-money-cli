@@ -16,7 +16,7 @@ import java.util.List;
 
 @Entity
 @EntityListeners(AuditingEntityListener.class)
-@Table(name = "account")
+@Table(name = "accounts")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -49,7 +49,7 @@ public class Account {
     @Column(name = "is_internal", nullable = false)
     private Boolean isInternal = true;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column(name = "created_at", nullable = false, updatable = false, columnDefinition = "TEXT NOT NULL DEFAULT (datetime('now'))")
     @CreatedDate
     private Instant createdAt;
 

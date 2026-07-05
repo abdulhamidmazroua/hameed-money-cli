@@ -127,10 +127,6 @@ public final class CommandsUtil {
         return getOptionOrDefault(ctx, shortName, longName, defaultVal);
     }
 
-    public static String required(String label) {
-        return "<" + label + "> is required.";
-    }
-
     public static String assetSymbol(Account account) {
         return account.getAsset() == null ? "\u2014" : account.getAsset().getSymbol();
     }

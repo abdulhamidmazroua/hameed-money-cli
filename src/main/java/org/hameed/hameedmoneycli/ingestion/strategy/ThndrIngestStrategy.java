@@ -1,8 +1,9 @@
-package org.hameed.hameedmoneycli.util;
+package org.hameed.hameedmoneycli.ingestion.strategy;
 
 import org.hameed.hameedmoneycli.enums.SourceSystemCode;
 import org.hameed.hameedmoneycli.model.entity.SourceSystem;
 import org.hameed.hameedmoneycli.model.entity.Transaction;
+import org.hameed.hameedmoneycli.util.IngestionStrategy;
 import org.springframework.shell.core.command.CommandContext;
 import org.springframework.stereotype.Component;
 

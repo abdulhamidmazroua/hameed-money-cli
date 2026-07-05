@@ -1,15 +1,16 @@
 package org.hameed.hameedmoneycli.ingestion;
 
+import lombok.AccessLevel;
+import lombok.NoArgsConstructor;
+import lombok.experimental.UtilityClass;
+
 import java.util.regex.Pattern;
-import java.util.regex.PatternSyntaxException;
 
 /**
  * Builds Java regex strings for {@code ingestion_rule.match_pattern} from CLI input.
  */
+@UtilityClass
 public final class IngestionRulePatternFactory {
-
-    private IngestionRulePatternFactory() {
-    }
 
     /**
      * @param userInput raw line from the user; empty uses a short snippet of {@code fullDescription}

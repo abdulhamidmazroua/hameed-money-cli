@@ -14,7 +14,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.Instant;
 import java.time.ZoneId;
 import java.util.List;
 
@@ -33,7 +32,7 @@ public class MarketQuoteService {
                 .baseAsset(assetService.getAssetBySymbol(marketQuote.baseSymbol()))
                 .quoteAsset(assetService.getAssetBySymbol(marketQuote.quoteSymbol()))
                 .price(marketQuote.price())
-                .quoteDate(marketQuote.marketQuoteDate() == null ? Instant.now() : DateUtil.parseDateStringToInstant(marketQuote.marketQuoteDate()))
+                .quoteDate(marketQuote.marketQuoteDate() == null ? System.currentTimeMillis() : DateUtil.parseDateStringToMillis(marketQuote.marketQuoteDate()))
                 .build();
 
         marketQuoteRepository.save(entity);
@@ -46,7 +45,7 @@ public class MarketQuoteService {
                         mq.getBaseAsset().getSymbol(),
                         mq.getQuoteAsset().getSymbol(),
                         mq.getPrice(),
-                        DateUtil.getDateStringFromInstant(mq.getQuoteDate())
+                        DateUtil.getDateStringFromMillis(mq.getQuoteDate())
                 ))
                 .toList();
     }
@@ -64,7 +63,7 @@ public class MarketQuoteService {
                         mq.getBaseAsset().getSymbol(),
                         mq.getQuoteAsset().getSymbol(),
                         mq.getPrice(),
-                        DateUtil.getDateStringFromInstant(mq.getQuoteDate())
+                        DateUtil.getDateStringFromMillis(mq.getQuoteDate())
                 ))
                 .toList();
     }

@@ -14,7 +14,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.Instant;
 
 @Service
 @RequiredArgsConstructor
@@ -58,7 +57,7 @@ public class SystemAdjustmentService {
                     .toAccount(leaf)
                     .fromAmount(absDiff)
                     .toAmount(absDiff)
-                    .transactionDate(Instant.now())
+                    .transactionDate(System.currentTimeMillis())
                     .sourceSystem(sourceSystem)
                     .feeAmount(BigDecimal.ZERO)
                     .isSystemAdjustment(true)
@@ -75,7 +74,7 @@ public class SystemAdjustmentService {
                     .toAccount(decreaseAccount)
                     .fromAmount(absDiff)
                     .toAmount(absDiff)
-                    .transactionDate(Instant.now())
+                    .transactionDate(System.currentTimeMillis())
                     .sourceSystem(sourceSystem)
                     .feeAmount(BigDecimal.ZERO)
                     .isSystemAdjustment(true)
@@ -110,7 +109,7 @@ public class SystemAdjustmentService {
                 .toAccount(leaf)
                 .fromAmount(balance)
                 .toAmount(balance)
-                .transactionDate(Instant.now())
+                .transactionDate(System.currentTimeMillis())
                 .sourceSystem(sourceSystem)
                 .feeAmount(BigDecimal.ZERO)
                 .isSystemAdjustment(true)

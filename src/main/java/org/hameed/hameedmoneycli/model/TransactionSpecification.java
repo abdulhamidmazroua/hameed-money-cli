@@ -10,6 +10,8 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 
+import static java.time.temporal.ChronoUnit.DAYS;
+
 public class TransactionSpecification {
 
     public static Specification<Transaction> hasTransactionType(String transactionType) {
@@ -34,7 +36,7 @@ public class TransactionSpecification {
             if (transactionDateTimeFrom == null || transactionDateTimeFrom.isBlank()) {
                 return null;
             }
-            Instant from = parseFilterStart(transactionDateTimeFrom);
+            Long from = parseFilterStart(transactionDateTimeFrom);
             return cb.greaterThanOrEqualTo(root.get("transactionDate"), from);
         };
     }
@@ -46,11 +48,11 @@ public class TransactionSpecification {
             }
             String raw = transactionDateTimeTo.trim();
             if (raw.contains("T")) {
-                Instant end = Instant.parse(raw);
+                Long end = Instant.parse(raw).toEpochMilli();
                 return cb.lessThanOrEqualTo(root.get("transactionDate"), end);
             }
             LocalDate d = LocalDate.parse(raw);
-            Instant endExclusive = d.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant();
+            Long endExclusive = d.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
             return cb.lessThan(root.get("transactionDate"), endExclusive);
         };
     }
@@ -106,13 +108,13 @@ public class TransactionSpecification {
         };
     }
 
-    private static Instant parseFilterStart(String raw) {
+    private static Long parseFilterStart(String raw) {
         try {
             if (raw.contains("T")) {
-                return Instant.parse(raw);
+                return Instant.parse(raw).toEpochMilli();
             }
             LocalDate d = LocalDate.parse(raw);
-            return d.atStartOfDay(ZoneId.systemDefault()).toInstant();
+            return d.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
         } catch (DateTimeParseException e) {
             throw new IllegalArgumentException("Invalid start date: " + raw, e);
         }

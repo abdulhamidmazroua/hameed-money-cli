@@ -9,7 +9,6 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.math.BigDecimal;
-import java.time.Instant;
 
 @Entity
 @EntityListeners(AuditingEntityListener.class)
@@ -36,7 +35,7 @@ public class MarketQuote {
 
     @Column(name = "quote_date", nullable = false)
     @CreatedDate
-    private Instant quoteDate;
+    private Long quoteDate;
 
     @Column(nullable = false, precision = 19, scale = 8)
     private BigDecimal price;

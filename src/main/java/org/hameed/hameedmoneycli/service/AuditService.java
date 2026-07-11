@@ -9,7 +9,6 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -32,7 +31,7 @@ public class AuditService {
         List<Object[]> dateRange = transactionRepository.findDateRangeByAccountId(account.getId());
         String dateRangeStr = "N/A";
         if (!dateRange.isEmpty() && dateRange.get(0)[0] != null) {
-            dateRangeStr = DATE_FMT.format((Instant) dateRange.get(0)[0]) + " to " + DATE_FMT.format((Instant) dateRange.get(0)[1]);
+            dateRangeStr = DATE_FMT.format(java.time.Instant.ofEpochMilli((Long) dateRange.get(0)[0])) + " to " + DATE_FMT.format(java.time.Instant.ofEpochMilli((Long) dateRange.get(0)[1]));
         }
 
         String assetLabel = account.getAsset() == null ? "(none)" : account.getAsset().getName() + " (" + account.getAsset().getSymbol() + ")";

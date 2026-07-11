@@ -59,7 +59,7 @@ public class TransactionService {
                 .toAccount(toAcc)
                 .fromAmount(transactionCreateDto.fromAmount())
                 .toAmount(transactionCreateDto.toAmount())
-                .transactionDate(DateUtil.parseDateStringToInstant(transactionCreateDto.transactionDate()))
+                .transactionDate(DateUtil.parseDateStringToMillis(transactionCreateDto.transactionDate()))
                 .sourceSystem(sourceSystem)
                 .feeAmount(fee)
                 .isSystemAdjustment(false)
@@ -116,7 +116,7 @@ public class TransactionService {
         return new TransactionDto(
                 transaction.getDescription(),
                 transaction.getType().name(),
-                transaction.getTransactionDate().toString(),
+                DateUtil.getDateTimeStringFromMillis(transaction.getTransactionDate()),
                 transaction.getFromAccount().getName(),
                 transaction.getFromAccount().getAsset().getSymbol(),
                 transaction.getFromAmount().toPlainString(),
@@ -125,7 +125,7 @@ public class TransactionService {
                 transaction.getToAmount().toPlainString(),
                 transaction.getFeeAmount() != null ? transaction.getFeeAmount().toPlainString() : "0",
                 transaction.getSourceSystem() != null ? transaction.getSourceSystem().getName() : null,
-                transaction.getCreatedAt().toString()
+                DateUtil.getDateTimeStringFromMillis(transaction.getCreatedAt())
         );
     }
 

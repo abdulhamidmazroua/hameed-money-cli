@@ -398,7 +398,7 @@ public class TransactionCommands {
                             accountPair.length() > 50 ? accountPair.substring(0, 47) + "..." : accountPair,
                             transaction.getFromAmount() + " " + assetSymbol(transaction.getFromAccount()),
                             transaction.getToAmount() + " " + assetSymbol(transaction.getToAccount()),
-                            transaction.getTransactionDate(),
+                            DateUtil.getDateTimeStringFromMillis(transaction.getTransactionDate()),
                             transaction.getFeeAmount() + " " + assetSymbol(transaction.getFromAccount())
                     );
                 }

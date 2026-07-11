@@ -1,6 +1,6 @@
 package org.hameed.hameedmoneycli.proxy;
 
-import lombok.RequiredArgsConstructor;
+import org.hameed.hameedmoneycli.config.HmcConfig;
 import org.hameed.hameedmoneycli.proxy.dto.TwelveDataListContainer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -10,19 +10,24 @@ import java.util.List;
 import java.util.Map;
 
 @Component
-@RequiredArgsConstructor
 public class TwelveDataProxy {
 
-    @Value("${hmc.market.data.provider.twelve-data.api-key}")
-    private String apiKey;
-
-    @Value("${hmc.market.data.provider.twelve-data.endpoint.stocks}")
-    private String stocksEndpoint;
-
+    private final HmcConfig config;
+    private final String stocksEndpoint;
     private final RestClient restClient;
 
+    public TwelveDataProxy(
+            HmcConfig config,
+            @Value("${hmc.market.data.provider.twelve-data.endpoint.stocks}") String stocksEndpoint,
+            RestClient restClient
+    ) {
+        this.config = config;
+        this.stocksEndpoint = stocksEndpoint;
+        this.restClient = restClient;
+    }
+
     public List<Map<String, String>> getExchangeSymbols(String exchange) {
-        String stocksUri = stocksEndpoint + "?apiKey=" +  apiKey + "&exchange=" + exchange;
+        String stocksUri = stocksEndpoint + "?apiKey=" + config.requireTwelveDataApiKey() + "&exchange=" + exchange;
         TwelveDataListContainer<Map<String, String>> twelveDataListContainer = restClient.get()
                 .uri(stocksUri)
                 .retrieve()

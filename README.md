@@ -2,7 +2,7 @@
 
 > A double-entry personal finance ledger for the command line. Ingest CSV exports from any bank or investment platform, normalise into a transaction log, and generate multi-currency reports.
 
-Built with **Spring Boot 4 + Spring Shell 4 + GraalVM 25**, powered by **PostgreSQL**, and **yfinance** for free stock/forex quotes.
+Built with **Spring Boot 4 + Spring Shell 4 + GraalVM 25**, powered by **SQLite**.
 
 ---
 
@@ -42,9 +42,7 @@ Built-in parsers: `HSBC_APP`, `BANQUE_MISR_APP`, `THNDR_APP`. Add your own by im
 
 ### Prerequisites
 
-- **Docker** — for running PostgreSQL
 - **GraalVM 25+** with `native-image` — install via SDKMAN: `sdk install java 25.0.2-graalce`
-- **Python 3 + yfinance** — `pip install yfinance` (for `quote fetch`)
 
 ### One-command install
 
@@ -53,41 +51,41 @@ Built-in parsers: `HSBC_APP`, `BANQUE_MISR_APP`, `THNDR_APP`. Add your own by im
 ```
 
 This will:
-1. Start PostgreSQL via Docker Compose
-2. Build the native binary
-3. Install `hmc` to `~/.local/bin`
-4. Run database migrations
-
-After install, use `hmc` from anywhere.
+1. Build the native binary
+2. Install `hmc` to `~/.local/bin`
+3. Create `~/.hmc/config.json` and `~/.hmc/hmc.db` on first launch
 
 ### Manual steps (if you prefer)
 
 ```bash
-./mvnw -Pnative native:compile -DskipTests       # Build native binary
 cp target/hameed-money-cli ~/.local/bin/hmc      # Install to PATH
 hmc help                                          # Creates ~/.hmc/hmc.db + runs migrations on first startup
 ```
 
-### Configuration via environment variables
+### Configuration via `~/.hmc/config.json`
 
-Copy `.env.example` to `.env` and fill in your API keys:
+On first launch, `hmc` creates `~/.hmc/config.json` with default values:
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `HMC_DB_URL` | `jdbc:postgresql://localhost:5432/hmc-db` | Database connection |
-| `HMC_DB_USER` | `hmc-user` | Database user |
-| `HMC_DB_PASSWORD` | `hmc-password` | Database password |
-| `HMC_DB_SCHEMA` | `app_data` | Database schema |
-| `HMC_REPORT_OUTPUT_DIR` | `~/hmc/reports` | CSV export directory |
-| `HMC_MARKET_DATA_PROVIDER` | `eodhd` | Provider for `asset fetch` (`eodhd` or `twelvedata`) |
-| `EODHD_API_KEY` | *(none)* | EODHD API key |
-| `TWELVE_DATA_API_KEY` | *(none)* | Twelve Data API key |
+```json
+{
+  "marketDataProvider": "eodhd",
+  "eodhd": { "apiKey": "" },
+  "twelveData": { "apiKey": "" }
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `marketDataProvider` | Which provider to use for market data (`eodhd` or `twelvedata`) |
+| `eodhd.apiKey` | Your EODHD API key (get one at https://eodhd.com) |
+| `twelveData.apiKey` | Your Twelve Data API key (get one at https://twelvedata.com) |
+
+Edit the file to add your API keys — the app will warn you at call time if a required key is missing.
 
 ### Database backup & restore
 
 ```bash
-hmc db backup --output ~/hmc/backups     # From inside the CLI
-./scripts/backup.sh                       # Or from the terminal
+./scripts/backup.sh    # From the terminal
 ./scripts/restore.sh ~/hmc/backups/hmc-20260101_120000.sql
 ```
 
@@ -383,16 +381,16 @@ src/main/java/org/hameed/hameedmoneycli/
 └── util/            # Ingestion strategies
 ```
 
-### Database (6 tables)
+### Database (6 tables, pluralised names)
 
 | Table | Role |
 |-------|------|
-| `asset` | Master list of financial instruments and currencies |
-| `account` | Hierarchical accounts |
-| `source_system` | Data import sources |
-| `transaction` | Double-entry ledger |
-| `ingestion_rule` | Regex patterns for auto-categorisation |
-| `market_quote` | FX rates and security prices |
+| `assets` | Master list of financial instruments and currencies |
+| `accounts` | Hierarchical accounts |
+| `source_systems` | Data import sources |
+| `transactions` | Double-entry ledger |
+| `ingestion_rules` | Regex patterns for auto-categorisation |
+| `market_quotes` | FX rates and security prices |
 
 ---
 

@@ -1,7 +1,7 @@
 package org.hameed.hameedmoneycli.proxy;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Component;
 
 import java.io.BufferedReader;
@@ -16,7 +16,11 @@ public class YahooFinanceProxy {
 
     private static final String SCRIPT_PATH = "scripts/yahoo_price.py";
     private static final long TIMEOUT_SECONDS = 15;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
+
+    public YahooFinanceProxy(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
 
     public Optional<BigDecimal> fetchPrice(String yahooSymbol) {
         try {

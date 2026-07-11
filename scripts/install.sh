@@ -41,6 +41,15 @@ fi
 ok "hmc installed"
 
 # ---------------------------------------------------------------
+info "Configuration..."
+echo ""
+echo "  On first launch, hmc creates ~/.hmc/config.json automatically."
+echo "  Edit it to add your API keys:"
+echo ""
+echo "    ~/.hmc/config.json"
+echo ""
+
+# ---------------------------------------------------------------
 echo ""
 echo -e "${GREEN}╔══════════════════════════════════════════════╗${NC}"
 echo -e "${GREEN}║             Setup complete!                 ║${NC}"

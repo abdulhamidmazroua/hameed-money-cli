@@ -27,7 +27,6 @@ import java.io.Reader;
 import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.*;
@@ -94,7 +93,7 @@ public class HsbcIngestStrategy implements IngestionStrategy {
                 String amountRaw = record.get(2);
 
                 try {
-                    Instant when = DateUtil.parseDateStringToInstant(dateRaw.trim(), HSBC_DATE);
+                    Long when = DateUtil.parseDateStringToMillis(dateRaw.trim(), HSBC_DATE);
                     BigDecimal signed = IngestionSupport.parseSignedAmount(amountRaw);
                     BigDecimal magnitude = IngestionSupport.absAmount(signed);
 

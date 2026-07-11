@@ -8,7 +8,6 @@ import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-import java.time.Instant;
 
 @Entity
 @EntityListeners(AuditingEntityListener.class)
@@ -34,7 +33,7 @@ public class SourceSystem {
     private Account anchoredAccount;
 
     @CreatedDate
-    @Column(name = "created_at", nullable = false, updatable = false, columnDefinition = "TEXT NOT NULL DEFAULT (datetime('now'))")
-    private Instant createdAt;
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Long createdAt;
 
 }

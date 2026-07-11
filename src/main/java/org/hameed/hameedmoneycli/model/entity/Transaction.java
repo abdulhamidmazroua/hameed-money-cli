@@ -12,7 +12,6 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.math.BigDecimal;
-import java.time.Instant;
 import java.util.Map;
 
 @Entity
@@ -36,7 +35,7 @@ public class Transaction {
     private TransactionType type;
 
     @Column(name = "transaction_date", nullable = false)
-    private Instant transactionDate;
+    private Long transactionDate;
 
     @ManyToOne
     @JoinColumn(name = "from_account_id", nullable = false)
@@ -69,8 +68,8 @@ public class Transaction {
     @JdbcTypeCode(SqlTypes.JSON)
     private Map<String, String> metadata;
 
-    @Column(name = "created_at", nullable = false, updatable = false, columnDefinition = "TEXT NOT NULL DEFAULT (datetime('now'))")
+    @Column(name = "created_at", nullable = false, updatable = false)
     @CreatedDate
-    private Instant createdAt;
+    private Long createdAt;
 
 }

@@ -8,8 +8,9 @@ import org.springframework.web.client.RestClient;
 @Configuration
 public class RestClientConfig {
 
-    @Value("${hmc.market.data.provider.twelve-date.base-url}")
+    @Value("${hmc.market.data.provider.twelve-data.base-url}")
     private String twelveDataBaseUrl;
+
     @Bean
     public RestClient restClient() {
         return RestClient.builder()

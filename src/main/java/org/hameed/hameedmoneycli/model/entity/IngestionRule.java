@@ -8,7 +8,6 @@ import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-import java.time.Instant;
 
 @Entity
 @EntityListeners(AuditingEntityListener.class)
@@ -33,8 +32,8 @@ public class IngestionRule {
     @Column(nullable = false)
     private Integer priority = 0;
 
-    @Column(nullable = false, updatable = false, columnDefinition = "TEXT NOT NULL DEFAULT (datetime('now'))")
+    @Column(nullable = false, updatable = false)
     @CreatedDate
-    private Instant createdAt;
+    private Long createdAt;
 
 }

@@ -24,5 +24,23 @@
     "name": "org.jline.terminal.impl.exec.ExecTerminalProvider",
     "allDeclaredConstructors": true,
     "allPublicConstructors": true
+  },
+  {
+    "name": "org.hameed.hameedmoneycli.config.HmcConfig$ConfigData",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allRecordComponents": true
+  },
+  {
+    "name": "org.hameed.hameedmoneycli.config.HmcConfig$ConfigData$EodhdConfig",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allRecordComponents": true
+  },
+  {
+    "name": "org.hameed.hameedmoneycli.config.HmcConfig$ConfigData$TwelveDataConfig",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allRecordComponents": true
   }
 ]

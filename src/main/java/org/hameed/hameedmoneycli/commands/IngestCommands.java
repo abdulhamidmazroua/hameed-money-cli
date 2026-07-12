@@ -1,7 +1,7 @@
 package org.hameed.hameedmoneycli.commands;
 
 import lombok.RequiredArgsConstructor;
-import org.hameed.hameedmoneycli.constants.IngestedTransactionStatus;
+import org.hameed.hameedmoneycli.enums.IngestedTransactionStatus;
 import org.hameed.hameedmoneycli.model.entity.*;
 import org.hameed.hameedmoneycli.service.StagingService;
 import org.springframework.context.annotation.Bean;

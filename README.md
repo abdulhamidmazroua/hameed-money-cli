@@ -270,8 +270,8 @@ Full example with all options:
 ### Database backup
 
 ```bash
-./scripts/backup.sh
-./scripts/restore.sh ~/hmc/backups/hmc-20260101_120000.sql
+hmc db backup                           # saves to ~/hmc/backups/
+hmc db backup --output /custom/path     # custom output directory
 ```
 
 ---

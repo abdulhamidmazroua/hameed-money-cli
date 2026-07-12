@@ -194,7 +194,7 @@ public class SystemCommands {
                 .help(INFO_COMMAND_HELP)
                 .availabilityProvider(availabilityProvider())
                 .execute(ctx -> {
-                    ctx.outputWriter().print(CommandsUtil.manual());
+                    CommandsUtil.pagedOutput(CommandsUtil.manual());
                 });
     }
 }

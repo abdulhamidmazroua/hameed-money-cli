@@ -3,7 +3,7 @@ package org.hameed.hameedmoneycli.classifier;
 import tools.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.hameed.hameedmoneycli.config.HmcConfig;
-import org.hameed.hameedmoneycli.constants.IngestedTransactionStatus;
+import org.hameed.hameedmoneycli.enums.IngestedTransactionStatus;
 import org.hameed.hameedmoneycli.constants.PromptConstants;
 import org.hameed.hameedmoneycli.model.entity.Account;
 import org.hameed.hameedmoneycli.model.entity.IngestedStagedTransaction;

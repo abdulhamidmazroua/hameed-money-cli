@@ -355,7 +355,7 @@ public final class CommandConstants {
     public static final String HMC_RECONCILE_ACCOUNT_NOT_FOUND = "Either --account <name>, --account-id <id>, or a positional account name is required.";
 
     // hmc db backup
-    public static final String HMC_DB_BACKUP_COMMAND_DESCRIPTION = "Backup the database via pg_dump";
+    public static final String HMC_DB_BACKUP_COMMAND_DESCRIPTION = "Backup the SQLite database";
     public static final String HMC_DB_BACKUP_COMMAND_USAGE = """
             Usage:
               Options:

@@ -1,4 +1,4 @@
-package org.hameed.hameedmoneycli.constants;
+package org.hameed.hameedmoneycli.enums;
 
 public enum IngestedTransactionStatus {
     PENDING,

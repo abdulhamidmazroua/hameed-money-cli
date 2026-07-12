@@ -1,6 +1,6 @@
 package org.hameed.hameedmoneycli.repository;
 
-import org.hameed.hameedmoneycli.constants.StagingSessionStatus;
+import org.hameed.hameedmoneycli.enums.StagingSessionStatus;
 import org.hameed.hameedmoneycli.model.entity.IngestionStagingSession;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;

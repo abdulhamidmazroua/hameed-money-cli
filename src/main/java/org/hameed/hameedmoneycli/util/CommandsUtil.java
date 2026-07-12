@@ -8,6 +8,8 @@ import org.springframework.shell.core.command.availability.Availability;
 import org.springframework.shell.core.command.availability.AvailabilityProvider;
 import org.springframework.shell.core.command.exit.ExitStatusExceptionMapper;
 
+import java.io.OutputStream;
+import java.io.PrintWriter;
 import java.util.List;
 
 public final class CommandsUtil {
@@ -83,7 +85,7 @@ public final class CommandsUtil {
 
             Architecture:
               \033[2m\u2022\033[0m \033[37mSpring Boot 4 + Spring Shell 4\033[0m \u2014 CLI framework
-              \033[2m\u2022\033[0m \033[37mSQLite\033[0m via JDBC \u2014 single-file database at \033[2m~/.hmc/data.db\033[0m
+              \033[2m\u2022\033[0m \033[37mSQLite\033[0m via JDBC \u2014 single-file database at \033[2m~/.hmc/hmc.db\033[0m
               \033[2m\u2022\033[0m \033[37mGraalVM 25\033[0m native binary \u2014 fast startup, no JVM overhead
 
 
@@ -338,7 +340,7 @@ public final class CommandsUtil {
               \033[2m$\033[0m hmc db backup                    \u2014  saves to ~/hmc/backups/
               \033[2m$\033[0m hmc db backup --output /path     \u2014  custom output directory
 
-            The database is a single file at \033[2m~/.hmc/data.db\033[0m. `hmc db backup` dumps
+            The database is a single file at \033[2m~/.hmc/hmc.db\033[0m. `hmc db backup` creates
             it to a timestamped SQL file you can restore with sqlite3.
 
 
@@ -418,6 +420,39 @@ public final class CommandsUtil {
 
     public static String assetSymbol(Account account) {
         return account.getAsset() == null ? "\u2014" : account.getAsset().getSymbol();
+    }
+
+    public static void pagedOutput(String content) {
+        String pager = System.getenv("PAGER");
+        if (pager == null || pager.isBlank()) {
+            if (available("less")) pager = "less -R";
+            else if (available("more")) pager = "more";
+        }
+        if (pager != null) {
+            try {
+                ProcessBuilder pb = new ProcessBuilder(pager.split(" "));
+                pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
+                pb.redirectError(ProcessBuilder.Redirect.INHERIT);
+                Process process = pb.start();
+                try (OutputStream os = process.getOutputStream()) {
+                    os.write(content.getBytes());
+                    os.flush();
+                }
+                process.waitFor();
+                return;
+            } catch (Exception ignored) {
+            }
+        }
+        System.out.print(content);
+    }
+
+    private static boolean available(String cmd) {
+        try {
+            new ProcessBuilder("which", cmd).start().waitFor();
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     public static ExitStatusExceptionMapper exceptionMapper() {

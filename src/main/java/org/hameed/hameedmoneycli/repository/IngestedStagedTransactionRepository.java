@@ -1,6 +1,6 @@
 package org.hameed.hameedmoneycli.repository;
 
-import org.hameed.hameedmoneycli.constants.IngestedTransactionStatus;
+import org.hameed.hameedmoneycli.enums.IngestedTransactionStatus;
 import org.hameed.hameedmoneycli.model.entity.IngestedStagedTransaction;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;

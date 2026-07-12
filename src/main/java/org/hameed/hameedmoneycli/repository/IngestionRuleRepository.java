@@ -1,5 +1,6 @@
 package org.hameed.hameedmoneycli.repository;
 
+import org.hameed.hameedmoneycli.model.entity.Account;
 import org.hameed.hameedmoneycli.model.entity.IngestionRule;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -16,4 +17,6 @@ public interface IngestionRuleRepository extends JpaRepository<IngestionRule, Lo
     int findMaxPriority();
 
     boolean existsByTargetAccount_Id(Long accountId);
+
+    boolean existsByMatchPatternAndTargetAccount(String matchPattern, Account targetAccount);
 }

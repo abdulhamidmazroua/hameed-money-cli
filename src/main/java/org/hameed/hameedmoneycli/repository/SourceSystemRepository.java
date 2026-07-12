@@ -11,4 +11,6 @@ public interface SourceSystemRepository extends JpaRepository<SourceSystem, Long
     Optional<SourceSystem> findByCode(String code);
 
     boolean existsByAnchoredAccount_Id(Long accountId);
+
+    boolean existsByCode(String code);
 }

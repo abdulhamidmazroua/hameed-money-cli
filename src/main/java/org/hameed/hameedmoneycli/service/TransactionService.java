@@ -44,7 +44,7 @@ public class TransactionService {
         }
 
         SourceSystem sourceSystem = sourceSystemRepository
-                .findByCode(transactionCreateDto.sourceSystemCode().name())
+                .findByCode(transactionCreateDto.sourceSystemCode())
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Unknown source system: " + transactionCreateDto.sourceSystemCode()));
 

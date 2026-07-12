@@ -5,7 +5,6 @@ import org.hameed.hameedmoneycli.model.dto.RuleCreateDto;
 import org.hameed.hameedmoneycli.service.AccountService;
 import org.hameed.hameedmoneycli.service.BackupService;
 import org.hameed.hameedmoneycli.service.IngestionRuleService;
-import org.hameed.hameedmoneycli.service.IngestionService;
 import org.hameed.hameedmoneycli.service.SystemAdjustmentService;
 import org.hameed.hameedmoneycli.util.CommandsUtil;
 import org.springframework.context.annotation.Bean;
@@ -24,45 +23,9 @@ import static org.hameed.hameedmoneycli.constants.CommandConstants.*;
 public class SystemCommands {
 
     private final AccountService accountService;
-    private final IngestionService ingestionService;
     private final IngestionRuleService ingestionRuleService;
     private final SystemAdjustmentService systemAdjustmentService;
     private final BackupService backupService;
-
-    @Bean
-    public Command ingestTransactions() {
-        return Command.builder()
-                .name("ingest")
-                .description(INGEST_COMMAND_DESCRIPTION)
-                .help(INGEST_COMMAND_HELP)
-                .availabilityProvider(availabilityProvider())
-                .exitStatusExceptionMapper(exceptionMapper())
-                .options(
-                        CommandOption.with()
-                                .shortName('f')
-                                .longName(FILE_PATH_ARG)
-                                .required(false)
-                                .type(String.class)
-                                .build(),
-                        CommandOption.with()
-                                .shortName('s')
-                                .longName(SOURCE_ARG)
-                                .required(false)
-                                .type(String.class)
-                                .build()
-                )
-                .execute(ctx -> {
-                    String source = argOrOption(ctx, 0, 's', SOURCE_ARG);
-                    if (source == null) throw new IllegalArgumentException(INGEST_SOURCE_ARG_ERROR);
-                    String filePath = argOrOption(ctx, 1, 'f', FILE_PATH_ARG);
-                    if (filePath == null) throw new IllegalArgumentException(INGEST_FILE_PATH_ARG_ERROR);
-                    try {
-                        ingestionService.ingestTransactions(source, filePath, ctx);
-                    } catch (Exception e) {
-                        throw new IllegalStateException(String.format(INGEST_FAILED, e.getMessage()), e);
-                    }
-                });
-    }
 
     @Bean
     public Command addRule() {
@@ -231,7 +194,7 @@ public class SystemCommands {
                 .help(INFO_COMMAND_HELP)
                 .availabilityProvider(availabilityProvider())
                 .execute(ctx -> {
-                    ctx.outputWriter().print(CommandsUtil.guidelines());
+                    ctx.outputWriter().print(CommandsUtil.manual());
                 });
     }
 }

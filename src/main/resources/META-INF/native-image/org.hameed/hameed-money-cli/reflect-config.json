@@ -42,5 +42,23 @@
     "allDeclaredConstructors": true,
     "allDeclaredMethods": true,
     "allRecordComponents": true
+  },
+  {
+    "name": "org.hameed.hameedmoneycli.config.HmcConfig$LlmConfig",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allRecordComponents": true
+  },
+  {
+    "name": "org.hameed.hameedmoneycli.model.entity.SourceFormatConfig",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allRecordComponents": true
+  },
+  {
+    "name": "org.hameed.hameedmoneycli.model.entity.SourceFormatConfig$ColumnMapping",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allRecordComponents": true
   }
 ]

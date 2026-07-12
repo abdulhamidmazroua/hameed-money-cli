@@ -1,7 +1,6 @@
 package org.hameed.hameedmoneycli.commands;
 
 import lombok.RequiredArgsConstructor;
-import org.hameed.hameedmoneycli.enums.SourceSystemCode;
 import org.hameed.hameedmoneycli.enums.TransactionType;
 import org.hameed.hameedmoneycli.model.dto.TransactionCreateDto;
 import org.hameed.hameedmoneycli.model.dto.TransactionFilter;
@@ -175,7 +174,7 @@ public class TransactionCommands {
                             new BigDecimal(fromAmount),
                             new BigDecimal(toAmount),
                             date,
-                            SourceSystemCode.MANUAL_ENTRY,
+                            "MANUAL_ENTRY",
                             new BigDecimal(feeAmount)
                     );
 

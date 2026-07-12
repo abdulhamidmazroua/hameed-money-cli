@@ -32,8 +32,6 @@ public final class CommandConstants {
     public static final String FROM_ACCOUNT_NAME_ARG = "from-account-name";
     public static final String TO_ACCOUNT_NAME_ARG = "to-account-name";
     public static final String ASSET_ARG = "asset";
-    public static final String SOURCE_ARG = "source";
-    public static final String FILE_PATH_ARG = "file-path";
     public static final String PATTERN_ARG = "pattern";
     public static final String TARGET_ARG = "target";
     public static final String BASE_ARG = "base";
@@ -317,20 +315,6 @@ public final class CommandConstants {
 
     // ─── System commands ───────────────────────────────────────────────────────
 
-    // ingest
-    public static final String INGEST_COMMAND_DESCRIPTION = "Import transactions from a CSV file";
-    public static final String INGEST_COMMAND_USAGE = """
-            Usage:
-              Options:
-                ingest --source <source> (-s) --file-path <path> (-f)
-              Positional:
-                ingest <source> <file-path>
-            """ + HYBRID_USAGE_WARNING;
-    public static final String INGEST_COMMAND_HELP = INGEST_COMMAND_DESCRIPTION + "\n" + INGEST_COMMAND_USAGE;
-    public static final String INGEST_SOURCE_ARG_ERROR = "<source> is missing. Use --source <source> (-s) or pass it as the first positional argument.\n" + INGEST_COMMAND_USAGE;
-    public static final String INGEST_FILE_PATH_ARG_ERROR = "<file-path> is missing. Use --file-path <path> (-f) or pass it as the second positional argument.\n" + INGEST_COMMAND_USAGE;
-    public static final String INGEST_FAILED = "Ingestion failed: %s";
-
     // rule add
     public static final String RULE_ADD_COMMAND_DESCRIPTION = "Add a transaction ingestion rule";
     public static final String RULE_ADD_COMMAND_USAGE = """
@@ -386,4 +370,182 @@ public final class CommandConstants {
             Usage:
               info""";
     public static final String INFO_COMMAND_HELP = INFO_COMMAND_DESCRIPTION + "\n" + INFO_COMMAND_USAGE;
+
+    // ─── Source commands ────────────────────────────────────────────────────────
+
+    public static final String SOURCE_CODE_ARG = "code";
+    public static final String SOURCE_NAME_ARG = "name";
+    public static final String SOURCE_FILE_ARG = "file";
+    public static final String SOURCE_ACCOUNT_ARG = "account";
+
+    // source list
+    public static final String SOURCE_LIST_COMMAND_DESCRIPTION = "List all source systems";
+    public static final String SOURCE_LIST_COMMAND_USAGE = """
+            Usage:
+              source list""";
+    public static final String SOURCE_LIST_COMMAND_HELP = SOURCE_LIST_COMMAND_DESCRIPTION + "\n" + SOURCE_LIST_COMMAND_USAGE;
+
+    // source show
+    public static final String SOURCE_SHOW_COMMAND_DESCRIPTION = "Show source system details";
+    public static final String SOURCE_SHOW_COMMAND_USAGE = """
+            Usage:
+              Options:
+                source show --code <code> (-c)
+              Positional:
+                source show <code>
+            """ + HYBRID_USAGE_WARNING;
+    public static final String SOURCE_SHOW_COMMAND_HELP = SOURCE_SHOW_COMMAND_DESCRIPTION + "\n" + SOURCE_SHOW_COMMAND_USAGE;
+    public static final String SOURCE_SHOW_CODE_ARG_ERROR = "<code> is missing. Use --code <code> (-c) or pass it as the first positional argument.\n" + SOURCE_SHOW_COMMAND_USAGE;
+
+    // source add
+    public static final String SOURCE_ADD_COMMAND_DESCRIPTION = "Add a new source system (detects format from CSV if --file provided)";
+    public static final String SOURCE_ADD_COMMAND_USAGE = """
+            Usage:
+              Options:
+                source add --name <name> (-n) --code <code> (-c) [--file <path> (-f)]
+                           [--account <id> (-a)]
+              Positional:
+                source add <name> <code> [--file <path>] [--account <id>]
+            (With --file, detects CSV format via LLM. Without, creates a bare source.)
+            """ + HYBRID_USAGE_WARNING;
+    public static final String SOURCE_ADD_COMMAND_HELP = SOURCE_ADD_COMMAND_DESCRIPTION + "\n" + SOURCE_ADD_COMMAND_USAGE;
+    public static final String SOURCE_ADD_NAME_ARG_ERROR = "<name> is missing. Use --name <name> (-n) or pass it as the first positional argument.\n" + SOURCE_ADD_COMMAND_USAGE;
+    public static final String SOURCE_ADD_CODE_ARG_ERROR = "<code> is missing. Use --code <code> (-c) or pass it as the second positional argument.\n" + SOURCE_ADD_COMMAND_USAGE;
+    public static final String SOURCE_ADD_EXISTS_ERROR = "Source system code already exists: %s.\n" + SOURCE_ADD_COMMAND_USAGE;
+
+    // source remove
+    public static final String SOURCE_REMOVE_COMMAND_DESCRIPTION = "Remove a source system";
+    public static final String SOURCE_REMOVE_COMMAND_USAGE = """
+            Usage:
+              Options:
+                source remove --code <code> (-c)
+              Positional:
+                source remove <code>
+            """ + HYBRID_USAGE_WARNING;
+    public static final String SOURCE_REMOVE_COMMAND_HELP = SOURCE_REMOVE_COMMAND_DESCRIPTION + "\n" + SOURCE_REMOVE_COMMAND_USAGE;
+    public static final String SOURCE_REMOVE_CODE_ARG_ERROR = "<code> is missing. Use --code <code> (-c) or pass it as the first positional argument.\n" + SOURCE_REMOVE_COMMAND_USAGE;
+
+    // source update-account
+    public static final String SOURCE_UPDATE_ACCOUNT_COMMAND_DESCRIPTION = "Update the anchored account for a source system";
+    public static final String SOURCE_UPDATE_ACCOUNT_COMMAND_USAGE = """
+            Usage:
+              Options:
+                source update-account --code <code> (-c) --account <id> (-a)
+              Positional:
+                source update-account <code> <account-id>
+            """ + HYBRID_USAGE_WARNING;
+    public static final String SOURCE_UPDATE_ACCOUNT_COMMAND_HELP = SOURCE_UPDATE_ACCOUNT_COMMAND_DESCRIPTION + "\n" + SOURCE_UPDATE_ACCOUNT_COMMAND_USAGE;
+    public static final String SOURCE_UPDATE_ACCOUNT_CODE_ARG_ERROR = "<code> is missing. Use --code <code> (-c) or pass it as the first positional argument.\n" + SOURCE_UPDATE_ACCOUNT_COMMAND_USAGE;
+    public static final String SOURCE_UPDATE_ACCOUNT_ACCOUNT_ARG_ERROR = "<account> is missing. Use --account <id> (-a) or pass it as the second positional argument.\n" + SOURCE_UPDATE_ACCOUNT_COMMAND_USAGE;
+
+    // source update-format
+    public static final String SOURCE_UPDATE_FORMAT_COMMAND_DESCRIPTION = "LLM-detect and update the format config for a source system";
+    public static final String SOURCE_UPDATE_FORMAT_COMMAND_USAGE = """
+            Usage:
+              Options:
+                source update-format --code <code> (-c) --file <path> (-f)
+              Positional:
+                source update-format <code> <file-path>
+            """ + HYBRID_USAGE_WARNING;
+    public static final String SOURCE_UPDATE_FORMAT_COMMAND_HELP = SOURCE_UPDATE_FORMAT_COMMAND_DESCRIPTION + "\n" + SOURCE_UPDATE_FORMAT_COMMAND_USAGE;
+    public static final String SOURCE_UPDATE_FORMAT_CODE_ARG_ERROR = "<code> is missing. Use --code <code> (-c) or pass it as the first positional argument.\n" + SOURCE_UPDATE_FORMAT_COMMAND_USAGE;
+    public static final String SOURCE_UPDATE_FORMAT_FILE_ARG_ERROR = "<file> is missing. Use --file <path> (-f) or pass it as the second positional argument.\n" + SOURCE_UPDATE_FORMAT_COMMAND_USAGE;
+
+    // ─── Ingest commands ───────────────────────────────────────────────────────
+
+    // ingest parse
+    public static final String INGEST_PARSE_COMMAND_DESCRIPTION = "Parse a CSV file into a staging session with auto-classification";
+    public static final String INGEST_PARSE_COMMAND_USAGE = """
+            Usage:
+              Options:
+                ingest parse --source <code> (-s) --file-path <path> (-f)
+              Positional:
+                ingest parse <source-code> <file-path>
+            """ + HYBRID_USAGE_WARNING;
+    public static final String INGEST_PARSE_COMMAND_HELP = INGEST_PARSE_COMMAND_DESCRIPTION + "\n" + INGEST_PARSE_COMMAND_USAGE;
+    public static final String INGEST_PARSE_SOURCE_ARG_ERROR = "<source> is missing. Use --source <code> (-s) or pass it as the first positional argument.\n" + INGEST_PARSE_COMMAND_USAGE;
+    public static final String INGEST_PARSE_FILE_ARG_ERROR = "<file-path> is missing. Use --file-path <path> (-f) or pass it as the second positional argument.\n" + INGEST_PARSE_COMMAND_USAGE;
+
+    // ingest sessions
+    public static final String INGEST_SESSIONS_COMMAND_DESCRIPTION = "List all staging sessions";
+    public static final String INGEST_SESSIONS_COMMAND_USAGE = """
+            Usage:
+              ingest sessions""";
+    public static final String INGEST_SESSIONS_COMMAND_HELP = INGEST_SESSIONS_COMMAND_DESCRIPTION + "\n" + INGEST_SESSIONS_COMMAND_USAGE;
+
+    // ingest review
+    public static final String INGEST_REVIEW_COMMAND_DESCRIPTION = "View staged rows in a session";
+    public static final String INGEST_REVIEW_COMMAND_USAGE = """
+            Usage:
+              Options:
+                ingest review --session <id> (-n) [--status <status> (-s)] [--unmatched (-u)]
+              Positional:
+                ingest review <session-id>
+            """ + HYBRID_USAGE_WARNING;
+    public static final String INGEST_REVIEW_COMMAND_HELP = INGEST_REVIEW_COMMAND_DESCRIPTION + "\n" + INGEST_REVIEW_COMMAND_USAGE;
+    public static final String INGEST_REVIEW_SESSION_ARG_ERROR = "<session> is missing. Use --session <id> (-n) or pass it as the first positional argument.\n" + INGEST_REVIEW_COMMAND_USAGE;
+    public static final String INGEST_REVIEW_NO_ROWS = "No rows to show.";
+    public static final String INGEST_REVIEW_INVALID_STATUS = "Invalid status: %s. Valid values: PENDING, CLASSIFIED, APPLIED, DUPLICATE, DISCARDED";
+
+    // ingest apply
+    public static final String INGEST_APPLY_COMMAND_DESCRIPTION = "Commit classified rows from a session to the ledger";
+    public static final String INGEST_APPLY_COMMAND_USAGE = """
+            Usage:
+              Options:
+                ingest apply --session <id> (-n)
+              Positional:
+                ingest apply <session-id>
+            """ + HYBRID_USAGE_WARNING;
+    public static final String INGEST_APPLY_COMMAND_HELP = INGEST_APPLY_COMMAND_DESCRIPTION + "\n" + INGEST_APPLY_COMMAND_USAGE;
+    public static final String INGEST_APPLY_SESSION_ARG_ERROR = "<session> is missing. Use --session <id> (-n) or pass it as the first positional argument.\n" + INGEST_APPLY_COMMAND_USAGE;
+
+    // ingest discard
+    public static final String INGEST_DISCARD_COMMAND_DESCRIPTION = "Discard a session or a specific row";
+    public static final String INGEST_DISCARD_COMMAND_USAGE = """
+            Usage:
+              Options:
+                ingest discard --session <id> (-n) [--row <index> (-r)]
+              Positional:
+                ingest discard <session-id> [<row-index>]
+            """ + HYBRID_USAGE_WARNING;
+    public static final String INGEST_DISCARD_COMMAND_HELP = INGEST_DISCARD_COMMAND_DESCRIPTION + "\n" + INGEST_DISCARD_COMMAND_USAGE;
+    public static final String INGEST_DISCARD_SESSION_ARG_ERROR = "<session> is missing. Use --session <id> (-n) or pass it as the first positional argument.\n" + INGEST_DISCARD_COMMAND_USAGE;
+
+    // ingest edit
+    public static final String INGEST_EDIT_COMMAND_DESCRIPTION = "Edit a field on a staged row";
+    public static final String INGEST_EDIT_COMMAND_USAGE = """
+            Usage:
+              Options:
+                ingest edit --session <id> (-n) --row <index> (-r) --field <name> (-f) --value <new-value> (-v)
+              Fields:
+                account      — set override account (by ID or name)
+                description  — set override description
+                amount       — set override amount
+                status       — set status (PENDING, CLASSIFIED, DISCARDED)
+                notes        — set user notes
+              Positional:
+                ingest edit <session-id> <row-index> <field> <value>
+            """ + HYBRID_USAGE_WARNING;
+    public static final String INGEST_EDIT_COMMAND_HELP = INGEST_EDIT_COMMAND_DESCRIPTION + "\n" + INGEST_EDIT_COMMAND_USAGE;
+    public static final String INGEST_EDIT_SESSION_ARG_ERROR = "<session> is missing. Use --session <id> (-n) or pass it as the first positional argument.\n" + INGEST_EDIT_COMMAND_USAGE;
+    public static final String INGEST_EDIT_ROW_ARG_ERROR = "<row> is missing. Use --row <index> (-r) or pass it as the second positional argument.\n" + INGEST_EDIT_COMMAND_USAGE;
+    public static final String INGEST_EDIT_FIELD_ARG_ERROR = "<field> is missing. Use --field <name> (-f) or pass it as the third positional argument.\n" + INGEST_EDIT_COMMAND_USAGE;
+    public static final String INGEST_EDIT_VALUE_ARG_ERROR = "<value> is missing. Use --value <new-value> (-v) or pass it as the fourth positional argument.\n" + INGEST_EDIT_COMMAND_USAGE;
+    public static final String INGEST_EDIT_UNKNOWN_FIELD = "Unknown field: %s. Valid: account, description, amount, status, notes";
+    public static final String INGEST_EDIT_INVALID_AMOUNT = "Invalid amount: %s";
+    public static final String INGEST_EDIT_INVALID_STATUS = "Invalid status: %s. Valid: PENDING, CLASSIFIED, APPLIED, DUPLICATE, DISCARDED";
+
+    // ─── Convert command ──────────────────────────────────────────────────────
+
+    public static final String CONVERT_COMMAND_DESCRIPTION = "Convert any bank statement (PDF, image, text, XLS) to CSV via LLM";
+    public static final String CONVERT_COMMAND_USAGE = """
+            Usage:
+              Options:
+                convert --input <path> (-i) [--output <path> (-o)]
+              Positional:
+                convert <input-file> [<output-file>]
+            (Input: any format — PDF, image, XLS, HTML, raw text. Output: CSV ready for source add --file / source update-format.)
+            """ + HYBRID_USAGE_WARNING;
+    public static final String CONVERT_COMMAND_HELP = CONVERT_COMMAND_DESCRIPTION + "\n" + CONVERT_COMMAND_USAGE;
+    public static final String CONVERT_INPUT_ARG_ERROR = "<input> is missing. Use --input <path> (-i) or pass it as the first positional argument.\n" + CONVERT_COMMAND_USAGE;
 }

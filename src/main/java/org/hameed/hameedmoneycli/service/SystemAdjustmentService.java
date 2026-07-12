@@ -1,7 +1,6 @@
 package org.hameed.hameedmoneycli.service;
 
 import lombok.RequiredArgsConstructor;
-import org.hameed.hameedmoneycli.enums.SourceSystemCode;
 import org.hameed.hameedmoneycli.enums.TransactionType;
 import org.hameed.hameedmoneycli.model.entity.Account;
 import org.hameed.hameedmoneycli.model.entity.Asset;
@@ -40,7 +39,7 @@ public class SystemAdjustmentService {
             return;
         }
 
-        SourceSystem sourceSystem = sourceSystemRepository.findByCode(SourceSystemCode.MANUAL_ENTRY.name())
+        SourceSystem sourceSystem = sourceSystemRepository.findByCode("MANUAL_ENTRY")
                 .orElseThrow(() -> new IllegalStateException("MANUAL_ENTRY source system not found in seed data."));
         BigDecimal absDiff = difference.abs();
 
@@ -99,7 +98,7 @@ public class SystemAdjustmentService {
                         "No opening balance SYSTEM account found for asset " + asset.getSymbol() + ". " +
                         "Create a leaf account with this asset first so the SYSTEM trio is generated."));
 
-        SourceSystem sourceSystem = sourceSystemRepository.findByCode(SourceSystemCode.MANUAL_ENTRY.name())
+        SourceSystem sourceSystem = sourceSystemRepository.findByCode("MANUAL_ENTRY")
                 .orElseThrow(() -> new IllegalStateException("MANUAL_ENTRY source system not found in seed data."));
 
         Transaction tx = Transaction.builder()

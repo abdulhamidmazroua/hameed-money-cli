@@ -91,12 +91,25 @@ public class HmcConfig {
         return t.apiKey;
     }
 
+    public LlmConfig getLlmConfig() {
+        return data().llm;
+    }
+
+    public record LlmConfig(
+            @JsonProperty("provider") String provider,
+            @JsonProperty("model") String model,
+            @JsonProperty("baseUrl") String baseUrl,
+            @JsonProperty("apiKey") String apiKey,
+            @JsonProperty("classifyPrompt") String classifyPrompt
+    ) {}
+
     private record ConfigData(
             @JsonProperty("marketDataProvider") String marketDataProvider,
             @JsonProperty("eodhd") EodhdConfig eodhd,
-            @JsonProperty("twelveData") TwelveDataConfig twelveData
+            @JsonProperty("twelveData") TwelveDataConfig twelveData,
+            @JsonProperty("llm") LlmConfig llm
     ) {
-        static final ConfigData DEFAULT = new ConfigData("eodhd", new EodhdConfig(""), new TwelveDataConfig(""));
+        static final ConfigData DEFAULT = new ConfigData("eodhd", new EodhdConfig(""), new TwelveDataConfig(""), null);
 
         private record EodhdConfig(@JsonProperty("apiKey") String apiKey) {}
         private record TwelveDataConfig(@JsonProperty("apiKey") String apiKey) {}

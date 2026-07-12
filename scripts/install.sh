@@ -22,6 +22,12 @@ info "Checking prerequisites..."
 command -v native-image >/dev/null 2>&1 || err "GraalVM native-image not found. Install GraalVM 25+ via SDKMAN: sdk install java 25.0.2-graalce"
 ok "GraalVM native-image found ($(native-image --version 2>&1 | head -1))"
 
+command -v python3 >/dev/null 2>&1 || err "Python 3 not found. Install Python 3 to use the convert command for PDF/image/XLS files."
+ok "Python 3 found ($(python3 --version 2>&1))"
+
+info "Installing Python dependencies for file conversion..."
+python3 -m pip install --quiet --upgrade pypdf pytesseract pdf2image openpyxl Pillow 2>/dev/null && ok "Python dependencies installed" || echo -e "  ${CYAN}Note:${NC} pip install failed — convert will work for .csv/.txt only. Install manually: pip install pypdf pytesseract pdf2image openpyxl Pillow"
+
 # ---------------------------------------------------------------
 info "Building native binary (this may take a couple of minutes)..."
 ./mvnw -Pnative native:compile -DskipTests -q

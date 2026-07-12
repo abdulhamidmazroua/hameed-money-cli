@@ -1,93 +1,8 @@
 # HameedMoneyCLI
 
-> A double-entry personal finance ledger for the command line. Ingest CSV exports from any bank or investment platform, normalise into a transaction log, and generate multi-currency reports.
+A double-entry personal finance ledger for the command line. Ingest bank statements from any source, auto-classify transactions with rules + LLM, and generate multi-currency reports.
 
 Built with **Spring Boot 4 + Spring Shell 4 + GraalVM 25**, powered by **SQLite**.
-
----
-
-## Philosophy: Bring Your Own Bank
-
-HameedMoneyCLI is a **data normalisation framework**, not a bank-specific tool. The system provides the ledger, the double-entry engine, and the reporting — **you** provide the ingestion strategy for your bank, broker, or investment app.
-
-```
-[HSBC Statement]  ──►  HSBC Strategy  ──┐
-[Thndr Statement] ──►  Thndr Strategy  ──┤
-[Your Bank]       ──►  Your Strategy   ──┤
-[Mint/Intuit]     ──►  Mint Strategy   ──┘
-                                            ▼
-                                      Normalised
-                                     Double-Entry
-                                        Ledger
-                                            │
-                                            ▼
-                                     ┌──────────────┐
-                                     │ Net Worth    │
-                                     │ Cash Flow    │
-                                     │ Portfolio    │
-                                     │ Data Health  │
-                                     └──────────────┘
-```
-
-- **Input:** Messy CSV exports from any source — banks, brokers, crypto exchanges, manual logs.
-- **Processing:** You write (or pick from built-in) source-specific parsers. Each row becomes a normalised double-entry transaction. Regex rules auto-categorise descriptions into target accounts.
-- **Storage:** Transactions live in a ledger. **No balances are stored** — everything is derived from the transaction log. This makes the system audit-proof by design.
-- **Output:** Reports for net worth, cash flow, and portfolio performance. Multi-currency valuation via a graph-based oracle.
-
-Built-in parsers: `HSBC_APP`, `BANQUE_MISR_APP`, `THNDR_APP`. Add your own by implementing the `IngestionStrategy` interface.
-
----
-
-## Setup
-
-### Prerequisites
-
-- **GraalVM 25+** with `native-image` — install via SDKMAN: `sdk install java 25.0.2-graalce`
-
-### One-command install
-
-```bash
-./scripts/install.sh
-```
-
-This will:
-1. Build the native binary
-2. Install `hmc` to `~/.local/bin`
-3. Create `~/.hmc/config.json` and `~/.hmc/hmc.db` on first launch
-
-### Manual steps (if you prefer)
-
-```bash
-cp target/hameed-money-cli ~/.local/bin/hmc      # Install to PATH
-hmc help                                          # Creates ~/.hmc/hmc.db + runs migrations on first startup
-```
-
-### Configuration via `~/.hmc/config.json`
-
-On first launch, `hmc` creates `~/.hmc/config.json` with default values:
-
-```json
-{
-  "marketDataProvider": "eodhd",
-  "eodhd": { "apiKey": "" },
-  "twelveData": { "apiKey": "" }
-}
-```
-
-| Field | Description |
-|-------|-------------|
-| `marketDataProvider` | Which provider to use for market data (`eodhd` or `twelvedata`) |
-| `eodhd.apiKey` | Your EODHD API key (get one at https://eodhd.com) |
-| `twelveData.apiKey` | Your Twelve Data API key (get one at https://twelvedata.com) |
-
-Edit the file to add your API keys — the app will warn you at call time if a required key is missing.
-
-### Database backup & restore
-
-```bash
-./scripts/backup.sh    # From the terminal
-./scripts/restore.sh ~/hmc/backups/hmc-20260101_120000.sql
-```
 
 ---
 
@@ -97,7 +12,7 @@ Edit the file to add your API keys — the app will warn you at call time if a r
 # 1. Register a cash asset
 hmc asset register "Egyptian Pound" EGP --category cash
 
-# 2. Create your account and post an opening balance (asset must exist first)
+# 2. Create an account with an opening balance
 hmc account init --name "My Wallet" --asset EGP --balance 5000
 
 # 3. Set a market quote
@@ -105,262 +20,367 @@ hmc quote set EGP USD --price 0.020
 
 # 4. See your net worth
 hmc report nw EGP
+
+# 5. Import a bank statement
+hmc source add --name "My Bank" --code MY_BANK --file statement.csv   # register source
+hmc ingest parse MY_BANK statement.csv                                # parse + auto-classify
+hmc ingest review --session 1                                         # view results
+hmc ingest apply --session 1                                          # commit to ledger
 ```
+
+---
+
+## The Ingestion Pipeline
+
+The core workflow is a four-step pipeline:
+
+```
+convert ──► source add ──► ingest parse ──► ingest apply
+                    ▲                        │
+                    │                        ▼
+              source update-format    auto-creates rules
+```
+
+### 1. `convert` — Normalise any format to CSV
+
+Converts PDFs, images, XLS files, or raw text into clean CSV via LLM. Skips this step if your data is already CSV.
+
+```bash
+hmc convert ~/Downloads/statement.pdf
+hmc convert ~/Downloads/statement.xls --output cleaned.csv
+```
+
+### 2. `source add` / `source update-format` — Register a source system
+
+Each bank or platform is a **source system** with a format config that tells the parser where to find dates, descriptions, and amounts in the CSV.
+
+```bash
+# Register with auto-detection (CSV only)
+hmc source add --name "My Bank" --code MY_BANK --file statement.csv
+
+# Or create a bare source and detect format later
+hmc source add --name "Credit Card" --code CREDIT_CARD
+hmc source update-format CREDIT_CARD --file card.csv
+```
+
+### 3. `ingest parse` — Parse + auto-classify (one command)
+
+Parses the CSV using the source's format config, then classifies every row:
+
+1. **Regex rules** run first — if a description matches an existing `IngestionRule`, the account is assigned immediately
+2. **LLM bulk classify** (if configured) — all unmatched rows are sent to the LLM in a single call. The LLM sees every description + every candidate account and returns classifications in one shot
+
+```bash
+hmc ingest parse MY_BANK statement.csv
+# → Staged 50 row(s) from MY_BANK (session 1): 45 classified, 3 pending, 2 errors, 0 duplicates
+```
+
+### 4. `ingest review` — Inspect the session
+
+Non-interactive table view. Filter by status or show only unmatched rows.
+
+```bash
+hmc ingest review --session 1
+hmc ingest review --session 1 --unmatched        # only rows without an account
+hmc ingest review --session 1 --status CLASSIFIED
+```
+
+### 5. `ingest edit` — Fix individual rows
+
+Correct any field before applying:
+
+```bash
+hmc ingest edit --session 1 --row 0 --field account --value "Groceries"
+hmc ingest edit --session 1 --row 3 --field description --value "Electricity bill"
+hmc ingest edit --session 1 --row 5 --field status --value DISCARDED
+```
+
+### 6. `ingest apply` — Commit to the ledger
+
+Creates transactions and **auto-generates regex rules** for future imports:
+
+```bash
+hmc ingest apply --session 1
+# → Applied 47 row(s) to ledger (session 1). 0 skipped, 3 remaining pending, 0 discarded.
+```
+
+Each successfully applied row creates a rule like `(?i).*<keyword>.*` at priority 100. The keyword is the description with variable parts (ref numbers, dates, amounts) stripped — so future statements from the same source match immediately without needing the LLM.
+
+### 7. `ingest discard` — Remove rows or cancel a session
+
+```bash
+hmc ingest discard --session 1 --row 3     # discard a single row
+hmc ingest discard --session 1              # cancel the entire session
+```
+
+---
+
+## Ingestion Rules
+
+Rules are regex patterns that match transaction descriptions to target accounts. They run before the LLM and are the fastest path to classification.
+
+### How auto-rules are created
+
+When `ingest apply` runs, each classified row generates a rule automatically. The description is cleaned — ref numbers, dates, amounts, and standalone numbers are stripped — leaving a stable keyword that matches future statements:
+
+| Raw description | Generated pattern |
+|----------------|-------------------|
+| `TT REF: LN12345678901234 AED 500 SUPERMARKET ABC DEF LLC ...` | `(?i).*SUPERMARKET ABC DEF LLC.*` |
+| `CARD NO.1234********5678 Coffee Shop Downtown:AE 978254...` | `(?i).*Coffee Shop Downtown.*` |
+| `MOBILE BANKING TRANSFER TO AE123456789012345678901 RefNo:- ABC123DEF456` | `(?i).*MOBILE BANKING TRANSFER TO.*` |
+| `SALARY TRANSFER FROM EMPLOYER NAME HERE ...` | `(?i).*SALARY TRANSFER FROM EMPLOYER.*` |
+
+### Manual rules
+
+Add custom rules at any time. Higher priority wins — the system uses `priority DESC, id ASC` ordering.
+
+```bash
+hmc rule add "(?i).*Supermarket.*" 12        # anything with "Supermarket" → account 12
+hmc rule add "(?i).*(Salary|Payroll).*" 7    # salary patterns → account 7
+```
+
+Default auto-rules use priority 100. Manual rules should use higher numbers to take precedence.
+
+### Amount direction
+
+The parser correctly handles both amount formats:
+- **Signed amounts** — positive = inflow, negative = outflow
+- **Debit/credit columns** — debit values are negated (outflow), credit values are positive (inflow)
+
+At apply time, the amount sign determines the direction:
+- **Positive amount** → money flows from the classified account **to** your anchored account (inflow)
+- **Negative amount** → money flows from your anchored account **to** the classified account (outflow)
 
 ---
 
 ## Core Concepts
 
-*See sections below for detailed explanations.*
+### Account Classification
 
-### 1. Account Classification
+| Category | Type | Examples |
+|----------|------|----------|
+| **Internal (what you own/owe)** | ASSET | Cash, bank accounts, stocks, apartment |
+| | LIABILITY | Loans, credit card balances |
+| **External (where money comes from/goes)** | INCOME | Salary, bonuses, dividends |
+| | EXPENSE | Groceries, subscriptions, food |
+| **Plumbing** | SYSTEM | Opening balances, reconciliation adjustments |
 
-**Internal Accounts (The "Vault")** — what you own and owe.
+External accounts cannot receive a transfer from another External account — money always flows between Internal and External (or between two Internal accounts).
 
-| Type | Examples |
-|------|----------|
-| **ASSET** | Cash, bank accounts, investment portfolios, stocks, an apartment |
-| **LIABILITY** | Loans, credit card balances |
+### Balance Derivation
 
-**External Accounts (The "World")** — origins and destinations of money.
+Balances are **never stored** — computed from the transaction log on demand.
 
-| Type | Examples |
-|------|----------|
-| **INCOME** | Salary, bonuses, dividends |
-| **EXPENSE** | Groceries, subscriptions, food, pocket money |
-
-**External accounts cannot receive a transfer from another External account** — money always flows between Internal and External (or between two Internal accounts). This ensures the ledger cleanly separates "what you have" from "where it comes from and goes to."
-
-A third technical type exists for internal plumbing:
-
-| Type | Purpose |
+| Type | Formula |
 |------|---------|
-| **SYSTEM** | Opening balances and reconciliation adjustments — ignored in cash flow reports |
-
-### 2. The Transaction Framework (Source → Destination)
-
-Every entry in the `transaction` table follows: `From Account → To Account`.
-
-| Transaction Type | From (Source) | To (Destination) | Effect |
-|-----------------|---------------|------------------|--------|
-| **Income** | External (Income) | Internal (Asset) | Both increase |
-| **Spending** | Internal (Asset) | External (Expense) | Asset decreases, Expense increases |
-| **Internal Transfer** | Internal (Asset A) | Internal (Asset B) | Asset A decreases, Asset B increases |
-| **Cash Out** | Internal (Asset) | External (PocketMoney) | Asset decreases, Expense increases |
-
-**System Adjustments:**
-
-| Transaction | From | To | Effect |
-|------------|------|----|--------|
-| **Opening balance** | SYSTEM | Asset | Asset increases (net worth ↑) |
-| **Reconciliation (up)** | SYSTEM | Asset | Asset increases (net worth ↑) |
-| **Reconciliation (down)** | Asset | SYSTEM | Asset decreases (net worth ↓) |
-
-### 3. Balance Derivation
-
-Balances are **never stored** — they are computed from the transaction log on demand.
-
-| Master Type | Balance Formula |
-|-------------|----------------|
-| **ASSET** | `∑to_amount − ∑from_amount` |
-| **EXPENSE** | `∑to_amount − ∑from_amount` |
-| **LIABILITY** | `∑from_amount − ∑to_amount` |
-| **INCOME** | `∑from_amount − ∑to_amount` |
-| **SYSTEM** | `∑from_amount − ∑to_amount` |
-
-Maps to the extended accounting equation: `Assets + Expenses = Liabilities + Equity + Income`
-
-### 4. The PocketMoney Rule
-
-Cash withdrawn from an ATM is treated as an **Expense** (External). Once money leaves the tracked banking system, it is considered spent — the physical cash is not tracked digitally.
-
-### 5. Reporting Impact
-
-| Report | What it computes |
-|--------|-----------------|
-| **Net Worth** | `∑(ASSET balances) − ∑(LIABILITY balances)`, all converted to target currency |
-| **Cash Flow** | `∑(Income outflows) − ∑(Expense inflows)` for a period |
-| **Portfolio** | Market price vs buy price per stock |
-| **Data Integrity** | `1 − (manualAdjustments / totalVolume)` |
-
-### Accounts are hierarchical
-
-```
-ASSET
-├── Cash
-│   ├── HSBC Current Account (EGP)
-│   ├── Checking Account (USD)
-│   └── Interactive Brokers (USD)
-├── Securities
-│   ├── Thndr Portfolio
-│   │   ├── CIB Stock (COMI.CA)
-│   │   └── EFG Hermes (EFGH.CA)
-│   └── Robinhood
-│       ├── Apple (AAPL)
-│       └── VOO (VOO)
-└── Real Estate
-    └── My Apartment (APT)
-```
-
-| Level | `asset_id` | Role |
-|-------|-----------|------|
-| **Root** | `NULL` | Top-level by master type |
-| **Parent** | `NULL` | Organisational folder |
-| **Leaf** | set | Actual account where money lives |
-
-### System Adjustments
-
-Each asset gets a **dedicated trio of SYSTEM accounts**:
-
-| Asset | Opening Balance | Increase | Decrease |
-|-------|----------------|----------|----------|
-| `EGP` | `Opening EGP Balance` | `EGP Balance Increase Adjustment` | `EGP Balance Decrease Adjustment` |
-
-Auto-created when a leaf account referencing that asset is first created.
-
-```bash
-hmc account init --name "HSBC Current" --asset EGP --balance 50000
-  → Opening EGP Balance (SYSTEM) → HSBC Current Account (ASSET)
-
-hmc reconcile "HSBC Current" --actual 49990
-  → HSBC Current Account (ASSET) → EGP Balance Decrease Adjustment (SYSTEM)
-```
-
-### The Graph Oracle (Multi-Currency Valuation)
-
-Valuation is a **graph traversal** problem:
-
-- **Nodes:** Every `Asset` (EGP, USD, AAPL, Gold) is a node.
-- **Edges:** `market_quote` records are directed price edges.
-- **Identity:** An asset always converts to itself at 1:1.
-- **Inverse:** If USD→EGP = 48.5, then EGP→USD ≈ 1/48.5 is derived automatically.
-- **Traversal:** BFS finds the shortest path and multiplies edge weights.
+| ASSET | `∑to − ∑from` |
+| EXPENSE | `∑to − ∑from` |
+| LIABILITY | `∑from − ∑to` |
+| INCOME | `∑from − ∑to` |
+| SYSTEM | `∑from − ∑to` |
 
 ### Idempotency
 
-Every transaction gets an `external_ref_id` — a SHA-256 hash of `sourceSystemCode|date|description|amount`. Running `ingest` multiple times on the same file produces **zero duplicates**.
+Every transaction gets an `external_ref_id` — a SHA-256 hash of `sourceSystemCode|date|description|amount`. Running `ingest parse` multiple times on the same file produces **zero duplicates**.
+
+### Multi-Currency Valuation
+
+A graph traversal oracle converts between any two assets:
+
+- **Nodes:** Every `Asset` (EGP, USD, AAPL, Gold) is a node
+- **Edges:** `market_quote` records are directed price edges
+- **Identity:** An asset always converts to itself at 1:1
+- **Inverse:** If USD→EGP = 48.5, then EGP→USD ≈ 1/48.5 is derived automatically
+- **Traversal:** BFS finds the shortest path and multiplies edge weights
 
 ---
 
-## Walkthrough: Your First Position
+## Setup
 
-### 1. Fetch available instruments
+### Prerequisites
+
+- **GraalVM 25+** with `native-image` — `sdk install java 25.0.2-graalce`
+- **Python 3** with OCR packages (for PDF/image conversion):
+
+  ```bash
+  pip install pypdf pytesseract pdf2image openpyxl Pillow
+  brew install tesseract          # macOS only
+  ```
+
+  The `convert` command works without these for `.csv` and `.txt` files.
+
+### Installation
 
 ```bash
-hmc asset fetch stock EGX
+./scripts/install.sh     # builds native binary, installs to ~/.local/bin
 ```
 
-Pulls all EGX-listed stocks. Supported categories: `stock`, `etf`, `fund`. Supported exchanges: `EGX`, `NASDAQ`, `NYSE`, `LSE`, `TSE`, `HKEX`, `ASX`, `TSX`, `BSE`, `NSE`, `TADAWUL`, `ADX`, `DFM`, `QE`, `EURONEXT`, `SSE`, `FWB`, `SIX`, `KRX`, `JPX`.
-
-### 2. Create an account
-
-Register the asset first if it doesn't exist:
+Or manually:
 
 ```bash
-hmc asset register "Commercial International Bank" COMI.CA --category stock
+cp target/hameed-money-cli ~/.local/bin/hmc
+hmc help                  # creates ~/.hmc/ on first launch
 ```
 
-Then create the account:
+### Configuration (`~/.hmc/config.json`)
 
-```bash
-hmc account create --name "CIB Shares" --parent-account-id 5
+Full example with all options:
+
+```json
+{
+  "marketDataProvider": "eodhd",
+  "eodhd": { "apiKey": "YOUR_EODHD_API_KEY" },
+  "twelveData": { "apiKey": "YOUR_TWELVEDATA_API_KEY" },
+  "llm": {
+    "provider": "ollama",
+    "model": "llama3",
+    "baseUrl": "http://localhost:11434/api/chat",
+    "apiKey": "",
+    "classifyPrompt": "Your custom prompt for transaction classification"
+  }
+}
 ```
 
-Launches an interactive wizard for account type (choose `ASSET`) and asset (pick `COMI.CA`).
+| Field | Required | Description |
+|-------|----------|-------------|
+| `marketDataProvider` | No | `"eodhd"` or `"twelvedata"` (default: `"eodhd"`) |
+| `eodhd.apiKey` | Yes* | EODHD API key. Required when using EODHD |
+| `twelveData.apiKey` | Yes* | Twelve Data API key. Required when using Twelve Data |
+| `llm` | No | Omit to disable LLM features |
+| `llm.provider` | Yes* | `"ollama"`, `"openai"`, `"claude"`, or `"gemini"` |
+| `llm.model` | No | Defaults per provider (see table) |
+| `llm.baseUrl` | Yes | **Full endpoint URL** for the provider |
+| `llm.apiKey` | No | Required for `openai`, `claude`, `gemini` |
+| `llm.classifyPrompt` | No | Custom prompt override for classification |
 
-### 3. Set a market quote
+| Provider | Default Model | Example `baseUrl` |
+|----------|--------------|-------------------|
+| `ollama` | `llama3` | `http://localhost:11434/api/chat` |
+| `openai` | `gpt-4o-mini` | `https://api.openai.com/v1/chat/completions` |
+| `claude` | `claude-3-haiku-20240307` | `https://api.anthropic.com/v1/messages` |
+| `gemini` | `gemini-2.0-flash` | `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent` |
+
+> `baseUrl` is used as-is. You control the model by embedding it in the URL. The `model` field is also sent in the request body for providers that require it.
+
+**Without `llm` section:**
+- `ingest parse` uses regex rules only (no LLM classification)
+- `convert` will not work
+- `source add --file` / `source update-format` cannot auto-detect format
+
+### Database backup
 
 ```bash
-hmc quote fetch COMI.CA EGP
+./scripts/backup.sh
+./scripts/restore.sh ~/hmc/backups/hmc-20260101_120000.sql
 ```
 
-Yahoo symbol construction:
+---
 
-| Direction | Pattern | Example |
-|-----------|---------|---------|
-| Stock → Cash | `{symbol}` + exchange suffix | `COMI.CA` |
-| Cash → Cash | `{base}{quote}=X` | `USDEGP=X` |
-| Crypto → Cash | `{symbol}-{currency}` | `BTC-USD` |
-| Commodity → Cash | `{symbol}=F` | `GC=F` |
-
-For manual assets:
-```bash
-hmc quote set MYASSET EGP --price 50000 --date 2025-01-15
-```
-
-### 4. Run the net worth report
+## Walkthrough: Import a Bank Statement End-to-End
 
 ```bash
-hmc report nw EGP
-```
+# 0. Register assets and accounts first
+hmc asset register "US Dollar" USD --category cash
+hmc account init --name "Checking" --asset USD --balance 5000
+hmc account create --name "Groceries" --parent-account-id 4    # EXPENSE
+hmc account create --name "Salary" --parent-account-id 4       # INCOME
 
-### 5. Import CSV exports
+# 1. Convert if needed (PDF → CSV)
+hmc convert ~/Downloads/bank-statement.pdf
 
-```bash
-hmc ingest HSBC_APP ~/Downloads/transactions.csv
+# 2. Register the source system
+hmc source add --name "My Bank" --code MY_BANK --file ~/Downloads/statement.csv
+
+# 3. Parse + auto-classify
+hmc ingest parse MY_BANK ~/Downloads/statement.csv
+
+# 4. Review what happened
+hmc ingest review --session 1
+hmc ingest review --session 1 --unmatched
+
+# 5. Fix anything the LLM got wrong
+hmc ingest edit --session 1 --row 4 --field account --value "Groceries"
+hmc ingest edit --session 1 --row 7 --field status --value DISCARDED
+
+# 6. Commit to ledger (auto-creates rules for next time)
+hmc ingest apply --session 1
+
+# 7. Verify the ledger
+hmc transaction list --from-account-id 2
+hmc report nw USD
 ```
 
 ---
 
 ## Command Reference
 
-### Asset Management
+### Assets
 
-| Command | What it does |
-|---------|--------------|
+| Command | Description |
+|---------|-------------|
 | `cat-list` | List all asset categories |
 | `asset list` | List all registered assets |
-| `asset register <name> <symbol> [--category <cat>]` | Register a new asset (`isTradable` is inferred from category) |
-| `asset fetch <category> <exchange>` | Sync instruments from the market data provider |
+| `asset register <name> <symbol> [--category <cat>]` | Register a new asset |
+| `asset fetch <category> <exchange>` | Sync instruments from market data provider |
 
-### Account Management
+### Accounts
 
-| Command | What it does |
-|---------|--------------|
+| Command | Description |
+|---------|-------------|
 | `account list` | Display the colour-coded account tree |
-| `account create --name <n> [--parent-account-id <id>]` | Create an account (interactive pickers) |
-| `account init --name <n> --asset <symbol> --balance <amt>` | One-shot: account + SYSTEM trio + opening balance (asset must exist first via `asset register`) |
+| `account create --name <n> [--parent-account-id <id>]` | Create an account (interactive) |
+| `account init --name <n> --asset <symbol> --balance <amt>` | One-shot: account + opening balance |
 | `account delete <id>` | Delete an account |
+| `account find [<keyword>]` | Search accounts |
 
-### Transaction Management
+### Transactions
 
-| Command | What it does |
-|---------|--------------|
-| `transaction add -F <from-id> -T <to-id> -a <amount> -d <date>` | Add a transaction |
-| `transaction list [-T <type>] [-f <from>] [-t <to>] [-s <start>] [-e <end>]` | List/filter transactions |
-| `transaction report [-T <type>] [-f <from>] [-t <to>] [-s <start>] [-e <end>]` | Export to CSV |
+| Command | Description |
+|---------|-------------|
+| `transaction add -F <from> -T <to> -a <amount>` | Record a transaction |
+| `transaction list [-T <type>] [-f <from>] [-t <to>]` | List/filter transactions |
+| `transaction report [-T <type>]` | Export to CSV |
 
-### Ingestion & Rules
+### Ingestion
 
-| Command | What it does |
-|---------|--------------|
-| `ingest <source> <file-path>` | Parse and import a CSV file |
-| `rule add <pattern> <target-id>` | Add a regex rule for auto-categorisation |
+| Command | Description |
+|---------|-------------|
+| `convert --input <path> [--output <path>]` | Convert PDF/image/XLS to CSV via LLM |
+| `source add --name <n> --code <c> [--file <path>]` | Register a source system |
+| `source list` | List all source systems |
+| `source show --code <c>` | Show source system details |
+| `source remove --code <c>` | Remove a source system |
+| `source update-account --code <c> --account <id>` | Set the anchored account |
+| `source update-format --code <c> --file <path>` | Re-detect CSV format via LLM |
+| `ingest parse --source <code> --file-path <path>` | Parse CSV + auto-classify (rules → LLM bulk) |
+| `ingest sessions` | List all staging sessions |
+| `ingest review --session <id> [--status <s>] [--unmatched]` | View staged rows |
+| `ingest edit --session <id> --row <n> --field <f> --value <v>` | Edit a staged row |
+| `ingest apply --session <id>` | Commit to ledger + auto-create rules |
+| `ingest discard --session <id> [--row <n>]` | Discard session or row |
+| `rule add <pattern> <target-id>` | Add a regex rule |
 
 ### Market Quotes
 
-| Command | What it does |
-|---------|--------------|
+| Command | Description |
+|---------|-------------|
 | `quote fetch <base> <quote>` | Auto-fetch price from Yahoo Finance |
 | `quote set <base> <quote> --price <v> [--date <d>]` | Store a manual quote |
 | `quote get <base> <quote>` | Retrieve stored quotes |
-| `quote list` | List the latest quote for every pair |
+| `quote list` | List latest quote for every pair |
 
-### System Adjustments
+### System & Reports
 
-| Command | What it does |
-|---------|--------------|
-| `hmc init <account-name> --balance <amount>` | Post an opening balance |
-| `hmc reconcile <account-name> --actual <amount>` | Fix a balance discrepancy |
-
-### Reporting & Audit
-
-| Command | What it does |
-|---------|--------------|
-| `report nw [<currency>]` | Net worth report (defaults to EGP) |
+| Command | Description |
+|---------|-------------|
+| `hmc init --account <name> --balance <amt>` | Post an opening balance |
+| `hmc reconcile --account <name> --actual <amt>` | Fix a balance discrepancy |
+| `hmc db backup [--output <dir>]` | Backup the database |
+| `report nw [<currency>]` | Net worth report (default: EGP) |
 | `report data-integrity` | Ledger health check |
 | `audit account [<id-or-name>]` | Audit a single account |
 | `audit trail` | Full ledger audit |
+| `info` | Show the financial data pipeline guide |
 
 ---
 
@@ -368,30 +388,29 @@ hmc ingest HSBC_APP ~/Downloads/transactions.csv
 
 ```
 src/main/java/org/hameed/hameedmoneycli/
-├── commands/        # Spring Shell commands
+├── commands/        # Spring Shell command definitions
 ├── config/          # Spring beans, RestClient, strategy wiring
+├── constants/       # Command help strings, LLM prompts
 ├── enums/           # AccountType, AssetCategory, etc.
-├── ingestion/       # CSV parsing helpers + regex rule factory
+├── ingestion/       # CSV parser, amount parser, ingestion utilities
 ├── model/
 │   ├── dto/         # Request/response DTOs
 │   └── entity/      # JPA entities
-├── proxy/           # Market data providers + Yahoo Finance
+├── proxy/           # LLM proxy, market data providers
 ├── repository/      # Spring Data JPA repositories
 ├── service/         # Business logic layer
-└── util/            # Ingestion strategies
+└── util/            # Shared utilities, date helpers
 ```
 
-### Database (6 tables, pluralised names)
+### Database tables
 
 | Table | Role |
 |-------|------|
-| `assets` | Master list of financial instruments and currencies |
-| `accounts` | Hierarchical accounts |
-| `source_systems` | Data import sources |
+| `assets` | Financial instruments and currencies |
+| `accounts` | Hierarchical account tree |
+| `source_systems` | Data import sources with format configs |
 | `transactions` | Double-entry ledger |
-| `ingestion_rules` | Regex patterns for auto-categorisation |
+| `ingestion_rules` | Regex patterns for auto-classification |
 | `market_quotes` | FX rates and security prices |
-
----
-
-*Design documentation lives in `hmc-docs/` for deeper dives into specific topics.*
+| `ingestion_staging_sessions` | Ingest session state |
+| `ingested_staged_transactions` | Staged rows awaiting apply |

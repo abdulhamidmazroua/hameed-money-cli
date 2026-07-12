@@ -1,6 +1,5 @@
 package org.hameed.hameedmoneycli.model.dto;
 
-import org.hameed.hameedmoneycli.enums.SourceSystemCode;
 import org.hameed.hameedmoneycli.enums.TransactionType;
 
 import java.math.BigDecimal;
@@ -13,7 +12,7 @@ public record TransactionCreateDto(
         BigDecimal fromAmount,
         BigDecimal toAmount,
         String transactionDate,
-        SourceSystemCode sourceSystemCode,
+        String sourceSystemCode,
         BigDecimal feeAmount
 ) {
 }

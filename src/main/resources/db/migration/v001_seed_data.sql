@@ -38,31 +38,9 @@ INSERT INTO accounts (name, master_type, parent_id, asset_id, is_internal, creat
 SELECT 'Debt', 'LIABILITY', NULL, NULL, TRUE, (CAST(strftime('%s','now') AS INTEGER) * 1000)
 WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE name = 'Debt' AND parent_id IS NULL);
 
--- Seed cash accounts (idempotent)
-INSERT INTO accounts (name, master_type, parent_id, asset_id, is_internal, created_at)
-SELECT 'EGP:HSBC Current Account', 'ASSET', (SELECT id FROM accounts WHERE name = 'Cash'), (SELECT id FROM assets WHERE symbol = 'EGP'), TRUE, (CAST(strftime('%s','now') AS INTEGER) * 1000)
-WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE name = 'EGP:HSBC Current Account');
-
-INSERT INTO accounts (name, master_type, parent_id, asset_id, is_internal, created_at)
-SELECT 'EGP:Misr Current Account', 'ASSET', (SELECT id FROM accounts WHERE name = 'Cash'), (SELECT id FROM assets WHERE symbol = 'EGP'), TRUE, (CAST(strftime('%s','now') AS INTEGER) * 1000)
-WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE name = 'EGP:Misr Current Account');
-
-INSERT INTO accounts (name, master_type, parent_id, asset_id, is_internal, created_at)
-SELECT 'EGP:Thndr Investment Account', 'ASSET', (SELECT id FROM accounts WHERE name = 'Cash'), (SELECT id FROM assets WHERE symbol = 'EGP'), TRUE, (CAST(strftime('%s','now') AS INTEGER) * 1000)
-WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE name = 'EGP:Thndr Investment Account');
-
 INSERT INTO accounts (name, master_type, parent_id, asset_id, is_internal, created_at)
 SELECT 'EGP:Loan Account', 'LIABILITY', (SELECT id FROM accounts WHERE name = 'Cash'), (SELECT id FROM assets WHERE symbol = 'EGP'), TRUE, (CAST(strftime('%s','now') AS INTEGER) * 1000)
 WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE name = 'EGP:Loan Account');
-
--- Seed portfolio folders (idempotent)
-INSERT INTO accounts (name, master_type, parent_id, asset_id, is_internal, created_at)
-SELECT 'Thndr Portfolio', 'ASSET', (SELECT id FROM accounts WHERE name = 'Securities'), NULL, TRUE, (CAST(strftime('%s','now') AS INTEGER) * 1000)
-WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE name = 'Thndr Portfolio');
-
-INSERT INTO accounts (name, master_type, parent_id, asset_id, is_internal, created_at)
-SELECT 'Etoro Portfolio', 'ASSET', (SELECT id FROM accounts WHERE name = 'Securities'), NULL, TRUE, (CAST(strftime('%s','now') AS INTEGER) * 1000)
-WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE name = 'Etoro Portfolio');
 
 INSERT INTO accounts (name, master_type, parent_id, asset_id, is_internal, created_at)
 SELECT 'Property', 'ASSET', (SELECT id FROM accounts WHERE name = 'Fixed'), NULL, TRUE, (CAST(strftime('%s','now') AS INTEGER) * 1000)
@@ -181,49 +159,3 @@ WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE name = 'AED:Balance Increase Adju
 INSERT INTO accounts (name, master_type, parent_id, asset_id, is_internal, created_at)
 SELECT 'AED:Balance Decrease Adjustment', 'SYSTEM', NULL, (SELECT id FROM assets WHERE symbol = 'AED'), FALSE, (CAST(strftime('%s','now') AS INTEGER) * 1000)
 WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE name = 'AED:Balance Decrease Adjustment');
-
--- Seed source systems (idempotent — code is UNIQUE)
-INSERT INTO source_systems (name, code, anchored_account_id, created_at)
-SELECT 'HSBC Egypt App', 'HSBC_APP', (SELECT id FROM accounts WHERE name = 'EGP:HSBC Current Account'), (CAST(strftime('%s','now') AS INTEGER) * 1000)
-ON CONFLICT (code) DO NOTHING;
-
-INSERT INTO source_systems (name, code, anchored_account_id, created_at)
-SELECT 'Banque Misr App', 'BANQUE_MISR_APP', (SELECT id FROM accounts WHERE name = 'EGP:Misr Current Account'), (CAST(strftime('%s','now') AS INTEGER) * 1000)
-ON CONFLICT (code) DO NOTHING;
-
-INSERT INTO source_systems (name, code, anchored_account_id, created_at)
-SELECT 'Thndr App', 'THNDR_APP', (SELECT id FROM accounts WHERE name = 'EGP:Thndr Investment Account'), (CAST(strftime('%s','now') AS INTEGER) * 1000)
-ON CONFLICT (code) DO NOTHING;
-
-INSERT INTO source_systems (name, code, anchored_account_id, created_at)
-SELECT 'Manual entry', 'MANUAL_ENTRY', (SELECT id FROM accounts WHERE name = 'EGP:HSBC Current Account'), (CAST(strftime('%s','now') AS INTEGER) * 1000)
-ON CONFLICT (code) DO NOTHING;
-
--- Seed ingestion rules (idempotent)
-INSERT INTO ingestion_rules (match_pattern, target_account_id, priority, created_at)
-SELECT '(?i).*Thndr.*', (SELECT id FROM accounts WHERE name = 'EGP:Thndr Investment Account'), 200, (CAST(strftime('%s','now') AS INTEGER) * 1000)
-WHERE NOT EXISTS (SELECT 1 FROM ingestion_rules WHERE match_pattern = '(?i).*Thndr.*');
-
-INSERT INTO ingestion_rules (match_pattern, target_account_id, priority, created_at)
-SELECT '(?i).*(Life Makers|Zakat|Sadakat|Bait El).*', (SELECT id FROM accounts WHERE name = 'EGP:Charity'), 190, (CAST(strftime('%s','now') AS INTEGER) * 1000)
-WHERE NOT EXISTS (SELECT 1 FROM ingestion_rules WHERE match_pattern = '(?i).*(Life Makers|Zakat|Sadakat|Bait El).*');
-
-INSERT INTO ingestion_rules (match_pattern, target_account_id, priority, created_at)
-SELECT '(?i).*(Mobile Recharge|Land Line|Home Internet|Purchase from).*', (SELECT id FROM accounts WHERE name = 'EGP:MobileRecharge'), 180, (CAST(strftime('%s','now') AS INTEGER) * 1000)
-WHERE NOT EXISTS (SELECT 1 FROM ingestion_rules WHERE match_pattern = '(?i).*(Mobile Recharge|Land Line|Home Internet|Purchase from).*');
-
-INSERT INTO ingestion_rules (match_pattern, target_account_id, priority, created_at)
-SELECT '(?i).*CARD TRANSACTION.*ATM.*', (SELECT id FROM accounts WHERE name = 'EGP:PocketMoney'), 175, (CAST(strftime('%s','now') AS INTEGER) * 1000)
-WHERE NOT EXISTS (SELECT 1 FROM ingestion_rules WHERE match_pattern = '(?i).*CARD TRANSACTION.*ATM.*');
-
-INSERT INTO ingestion_rules (match_pattern, target_account_id, priority, created_at)
-SELECT '(?i).*CARD TRANSACTION.*', (SELECT id FROM accounts WHERE name = 'EGP:Food'), 50, (CAST(strftime('%s','now') AS INTEGER) * 1000)
-WHERE NOT EXISTS (SELECT 1 FROM ingestion_rules WHERE match_pattern = '(?i).*CARD TRANSACTION.*');
-
-INSERT INTO ingestion_rules (match_pattern, target_account_id, priority, created_at)
-SELECT '(?i).*Instant Transfer from.*', (SELECT id FROM accounts WHERE name = 'EGP:Basic Salary'), 40, (CAST(strftime('%s','now') AS INTEGER) * 1000)
-WHERE NOT EXISTS (SELECT 1 FROM ingestion_rules WHERE match_pattern = '(?i).*Instant Transfer from.*');
-
-INSERT INTO ingestion_rules (match_pattern, target_account_id, priority, created_at)
-SELECT '(?i).*', (SELECT id FROM accounts WHERE name = 'EGP:Other'), -1000, (CAST(strftime('%s','now') AS INTEGER) * 1000)
-WHERE NOT EXISTS (SELECT 1 FROM ingestion_rules WHERE match_pattern = '(?i).*');

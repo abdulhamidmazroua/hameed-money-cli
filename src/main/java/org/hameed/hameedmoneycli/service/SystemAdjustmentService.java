@@ -1,6 +1,7 @@
 package org.hameed.hameedmoneycli.service;
 
 import lombok.RequiredArgsConstructor;
+import org.hameed.hameedmoneycli.enums.AccountType;
 import org.hameed.hameedmoneycli.enums.TransactionType;
 import org.hameed.hameedmoneycli.model.entity.Account;
 import org.hameed.hameedmoneycli.model.entity.Asset;
@@ -39,6 +40,9 @@ public class SystemAdjustmentService {
             return;
         }
 
+        boolean intoIncreasesBalance = leaf.getMasterType() == AccountType.ASSET
+                || leaf.getMasterType() == AccountType.EXPENSE;
+
         SourceSystem sourceSystem = sourceSystemRepository.findByCode("MANUAL_ENTRY")
                 .orElseThrow(() -> new IllegalStateException("MANUAL_ENTRY source system not found in seed data."));
         BigDecimal absDiff = difference.abs();
@@ -52,8 +56,8 @@ public class SystemAdjustmentService {
             tx = Transaction.builder()
                     .description("Balance increase adjustment for " + leaf.getName() + " (actual: " + actualBalance + ")")
                     .type(TransactionType.SYSTEM_ADJUSTMENT)
-                    .fromAccount(increaseAccount)
-                    .toAccount(leaf)
+                    .fromAccount(intoIncreasesBalance ? increaseAccount : leaf)
+                    .toAccount(intoIncreasesBalance ? leaf : increaseAccount)
                     .fromAmount(absDiff)
                     .toAmount(absDiff)
                     .transactionDate(System.currentTimeMillis())
@@ -69,8 +73,8 @@ public class SystemAdjustmentService {
             tx = Transaction.builder()
                     .description("Balance decrease adjustment for " + leaf.getName() + " (actual: " + actualBalance + ")")
                     .type(TransactionType.SYSTEM_ADJUSTMENT)
-                    .fromAccount(leaf)
-                    .toAccount(decreaseAccount)
+                    .fromAccount(intoIncreasesBalance ? leaf : decreaseAccount)
+                    .toAccount(intoIncreasesBalance ? decreaseAccount : leaf)
                     .fromAmount(absDiff)
                     .toAmount(absDiff)
                     .transactionDate(System.currentTimeMillis())
@@ -101,11 +105,14 @@ public class SystemAdjustmentService {
         SourceSystem sourceSystem = sourceSystemRepository.findByCode("MANUAL_ENTRY")
                 .orElseThrow(() -> new IllegalStateException("MANUAL_ENTRY source system not found in seed data."));
 
+        boolean intoIncreasesBalance = leaf.getMasterType() == AccountType.ASSET
+                || leaf.getMasterType() == AccountType.EXPENSE;
+
         Transaction tx = Transaction.builder()
                 .description("Opening balance for " + leaf.getName())
                 .type(TransactionType.SYSTEM_ADJUSTMENT)
-                .fromAccount(openingAccount)
-                .toAccount(leaf)
+                .fromAccount(intoIncreasesBalance ? openingAccount : leaf)
+                .toAccount(intoIncreasesBalance ? leaf : openingAccount)
                 .fromAmount(balance)
                 .toAmount(balance)
                 .transactionDate(System.currentTimeMillis())

@@ -5,6 +5,8 @@ import org.hameed.hameedmoneycli.enums.AccountType;
 import org.hameed.hameedmoneycli.model.dto.AccountCreateDto;
 import org.hameed.hameedmoneycli.model.dto.AccountFilter;
 import org.hameed.hameedmoneycli.model.entity.Account;
+import org.hameed.hameedmoneycli.repository.AccountRepository;
+import org.hameed.hameedmoneycli.repository.TransactionRepository;
 import org.hameed.hameedmoneycli.service.AccountService;
 import org.hameed.hameedmoneycli.service.AssetService;
 import org.hameed.hameedmoneycli.util.CommandsUtil;
@@ -15,6 +17,8 @@ import org.springframework.shell.core.command.CommandOption;
 import org.springframework.shell.jline.tui.component.flow.ComponentFlow;
 import org.springframework.shell.jline.tui.component.flow.SelectItem;
 
+import java.math.BigDecimal;
+import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -29,6 +33,8 @@ public class AccountCommands {
 
     private final AccountService accountService;
     private final AssetService assetService;
+    private final AccountRepository accountRepository;
+    private final TransactionRepository transactionRepository;
     private final ComponentFlow.Builder componentFlowBuilder;
 
     @Bean
@@ -205,16 +211,26 @@ public class AccountCommands {
                         return;
                     }
 
-                    ctx.outputWriter().printf("%-4s | %-40s | %-10s | %-10s | %s%n", "ID", "Name", "Type", "Asset", "Internal");
-                    ctx.outputWriter().printf("%-4s-|-%40s-|-%10s-|-%10s-|-%s%n",
-                            "----", "----------------------------------------", "----------", "----------", "--------");
+                    NumberFormat nf = NumberFormat.getNumberInstance();
+                    nf.setMinimumFractionDigits(2);
+                    nf.setMaximumFractionDigits(2);
+
+                    ctx.outputWriter().printf("%-4s | %-40s | %-10s | %-10s | %-10s | %-18s | %-7s%n", "ID", "Name", "Type", "Asset", "Leaf", "Balance", "Internal");
+                    ctx.outputWriter().printf("%-4s-|-%40s-|-%10s-|-%10s-|-%10s-|-%-18s-|-%-7s%n",
+                            "----", "----------------------------------------", "----------", "----------", "----------", "------------------", "-------");
                     for (Account account : results) {
-                        String assetName = account.getAsset() == null ? "\u2014" : account.getAsset().getSymbol();
-                        ctx.outputWriter().printf("%-4d | %-40s | %-10s | %-10s | %s%n",
+                        String assetName = account.getAsset() == null ? "—" : account.getAsset().getSymbol();
+                        boolean isLeaf = !accountRepository.existsByParent_Id(account.getId());
+                        BigDecimal balance = account.getAsset() == null
+                                ? null
+                                : transactionRepository.getAccountBalance(account.getId());
+                        ctx.outputWriter().printf("%-4d | %-40s | %-10s | %-10s | %-10s | %-18s | %-7s%n",
                                 account.getId(),
                                 truncate(account.getName(), 40),
                                 account.getMasterType(),
                                 assetName,
+                                isLeaf ? "yes" : "no",
+                                balance == null ? "—" : nf.format(balance) + " " + assetName,
                                 account.getIsInternal());
                     }
                 });

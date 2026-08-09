@@ -138,6 +138,36 @@ public class QuoteCommands {
     }
 
     @Bean
+    public Command refreshQuotes() {
+        return Command.builder()
+                .name("quote refresh")
+                .description(QUOTE_REFRESH_COMMAND_DESCRIPTION)
+                .help(QUOTE_REFRESH_COMMAND_HELP)
+                .availabilityProvider(availabilityProvider())
+                .exitStatusExceptionMapper(exceptionMapper())
+                .execute(ctx -> {
+                    var result = marketQuoteService.refreshAllQuotes();
+
+                    if (result.updated().isEmpty() && result.failed().isEmpty()) {
+                        ctx.outputWriter().println("No stored quotes to refresh.");
+                        return;
+                    }
+
+                    for (String pair : result.updated()) {
+                        ctx.outputWriter().println("Updated: " + pair);
+                    }
+
+                    for (var failure : result.failed()) {
+                        ctx.outputWriter().println("FAILED: " + failure.baseSymbol() + " -> " + failure.quoteSymbol()
+                                + " (" + failure.reason() + ")");
+                    }
+
+                    ctx.outputWriter().println("Done. " + result.updated().size() + " updated, "
+                            + result.failed().size() + " failed.");
+                });
+    }
+
+    @Bean
     public Command listQuotes() {
         return Command.builder()
                 .name("quote list")

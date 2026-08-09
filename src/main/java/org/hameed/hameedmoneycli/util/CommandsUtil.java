@@ -35,6 +35,7 @@ public final class CommandsUtil {
                 
                   \033[32m2.\033[0m \033[37mMarket quotes\033[0m  \u2014  prices that feed into net worth calculations
                      \033[2m\u2022\033[0m \033[37mquote fetch AAPL USD\033[0m   \u2014  fetch a live quote from Yahoo Finance
+                     \033[2m\u2022\033[0m \033[37mquote refresh\033[0m        \u2014  update every stored pair (failures reported, not fatal)
                      \033[2m\u2022\033[0m \033[37mquote set USD EGP --price 48.5\033[0m  \u2014  set a quote manually
                      \033[2m\u2022\033[0m \033[37mquote list\033[0m             \u2014  see all stored quotes
                 
@@ -197,6 +198,7 @@ public final class CommandsUtil {
 
             Commands:
               \033[37mquote fetch USD EGP\033[0m    \u2014  auto-fetch from Yahoo Finance
+              \033[37mquote refresh\033[0m       \u2014  update all stored pairs
               \033[37mquote set USD EGP --price 48.5\033[0m  \u2014  manual quote
               \033[37mquote get USD EGP\033[0m      \u2014  view stored quotes
               \033[37mquote list\033[0m             \u2014  latest quote for every pair

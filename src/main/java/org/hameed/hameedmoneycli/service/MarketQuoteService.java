@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.hameed.hameedmoneycli.enums.AssetCategory;
 import org.hameed.hameedmoneycli.enums.StockExchange;
 import org.hameed.hameedmoneycli.model.dto.MarketQuoteDto;
+import org.hameed.hameedmoneycli.model.dto.QuoteRefreshResult;
 import org.hameed.hameedmoneycli.model.entity.Asset;
 import org.hameed.hameedmoneycli.model.entity.FinancialOracle;
 import org.hameed.hameedmoneycli.model.entity.MarketQuote;
@@ -15,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -82,6 +84,26 @@ public class MarketQuoteService {
                 ));
 
         setMarketQuote(new MarketQuoteDto(baseSymbol, quoteSymbol, price, null));
+    }
+
+    public QuoteRefreshResult refreshAllQuotes() {
+        List<MarketQuote> latestQuotes = marketQuoteRepository.findAllLatest();
+
+        List<String> updated = new ArrayList<>();
+        List<QuoteRefreshResult.Failure> failed = new ArrayList<>();
+
+        for (MarketQuote quote : latestQuotes) {
+            String baseSymbol = quote.getBaseAsset().getSymbol();
+            String quoteSymbol = quote.getQuoteAsset().getSymbol();
+            try {
+                fetchAndSaveQuote(baseSymbol, quoteSymbol);
+                updated.add(baseSymbol + " -> " + quoteSymbol);
+            } catch (Exception e) {
+                failed.add(new QuoteRefreshResult.Failure(baseSymbol, quoteSymbol, e.getMessage()));
+            }
+        }
+
+        return new QuoteRefreshResult(updated, failed);
     }
 
     private String resolveYahooSymbol(Asset base, Asset quote) {

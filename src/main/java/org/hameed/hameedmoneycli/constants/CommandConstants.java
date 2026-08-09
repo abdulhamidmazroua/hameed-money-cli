@@ -268,6 +268,13 @@ public final class CommandConstants {
     public static final String QUOTE_FETCH_BASE_ARG_ERROR = "<base> is missing. Use --base <symbol> (-b) or pass it as the first positional argument.\n" + QUOTE_FETCH_COMMAND_USAGE;
     public static final String QUOTE_FETCH_QUOTE_ARG_ERROR = "<quote> is missing. Use --quote <symbol> (-q) or pass it as the second positional argument.\n" + QUOTE_FETCH_COMMAND_USAGE;
 
+    // quote refresh
+    public static final String QUOTE_REFRESH_COMMAND_DESCRIPTION = "Fetch the latest quote for every stored pair and update it";
+    public static final String QUOTE_REFRESH_COMMAND_USAGE = """
+            Usage:
+              quote refresh""";
+    public static final String QUOTE_REFRESH_COMMAND_HELP = QUOTE_REFRESH_COMMAND_DESCRIPTION + "\n" + QUOTE_REFRESH_COMMAND_USAGE;
+
     // quote list
     public static final String QUOTE_LIST_COMMAND_DESCRIPTION = "List all stored market quotes";
     public static final String QUOTE_LIST_COMMAND_USAGE = """

@@ -425,6 +425,7 @@ report nw USD
 | `quote set <base> <quote> --price <v> [--date <d>]` | Store a manual quote |
 | `quote get <base> <quote>` | Retrieve stored quotes |
 | `quote list` | List latest quote for every pair |
+| `quote refresh` | Update every stored pair; failed pairs are reported, not fatal |
 
 ### System & Reports
 

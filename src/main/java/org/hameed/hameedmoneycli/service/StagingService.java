@@ -261,7 +261,7 @@ public class StagingService {
     }
 
     @Transactional
-    public void editRow(Long sessionId, Integer rowIndex, String field, String value) {
+    public void editRow(Long sessionId, Long rowIndex, String field, String value) {
         IngestedStagedTransaction row = stagedRepository.findBySessionIdAndRowIndex(sessionId, rowIndex)
                 .orElseThrow(() -> new IllegalArgumentException("Row not found: session " + sessionId + ", row " + rowIndex));
 
@@ -302,24 +302,25 @@ public class StagingService {
 
     @Transactional
     public void discard(Long sessionId, Long rowId) {
-        if (rowId != null) {
-            IngestedStagedTransaction row = stagedRepository.findById(rowId)
-                    .orElseThrow(() -> new IllegalArgumentException("Staged row not found: " + rowId));
-            row.setStatus(IngestedTransactionStatus.DISCARDED);
-            stagedRepository.save(row);
-        } else {
-            List<IngestedStagedTransaction> rows = stagedRepository
-                .findBySessionIdAndStatusOrderByRowIndex(sessionId, IngestedTransactionStatus.PENDING);
-            for (IngestedStagedTransaction row : rows) {
-            row.setStatus(IngestedTransactionStatus.DISCARDED);
-            }
-            stagedRepository.saveAll(rows);
+        IngestedStagedTransaction row = stagedRepository.findBySessionIdAndRowIndex(sessionId, rowId)
+                .orElseThrow(() -> new IllegalArgumentException("Staged row not found: row-index: %s, session-id: %s".formatted(rowId, sessionId)));
+        row.setStatus(IngestedTransactionStatus.DISCARDED);
+        stagedRepository.save(row);
+    }
 
-            IngestionStagingSession session = sessionRepository.findById(sessionId)
-                    .orElseThrow(() -> new IllegalArgumentException("Session not found: " + sessionId));
-            session.setStatus(StagingSessionStatus.CANCELLED);
-            sessionRepository.save(session);
+    @Transactional
+    public void cancelSession(Long sessionId) {
+        List<IngestedStagedTransaction> rows = stagedRepository
+                .findBySessionIdOrderByRowIndex(sessionId);
+        for (IngestedStagedTransaction row : rows) {
+            row.setStatus(IngestedTransactionStatus.DISCARDED);
         }
+        stagedRepository.saveAll(rows);
+
+        IngestionStagingSession session = sessionRepository.findById(sessionId)
+                .orElseThrow(() -> new IllegalArgumentException("Session not found: " + sessionId));
+        session.setStatus(StagingSessionStatus.CANCELLED);
+        sessionRepository.save(session);
     }
 
     public List<IngestionStagingSession> listSessions() {

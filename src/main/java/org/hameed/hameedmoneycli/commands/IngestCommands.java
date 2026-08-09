@@ -243,7 +243,7 @@ public class IngestCommands {
                         stagingService.discard(sessionId, Long.parseLong(rowStr));
                         ctx.outputWriter().println("Row " + rowStr + " discarded.");
                     } else {
-                        stagingService.discard(sessionId, null);
+                        stagingService.cancelSession(sessionId);
                         ctx.outputWriter().println("Session " + sessionId + " cancelled.");
                     }
                 });
@@ -274,7 +274,7 @@ public class IngestCommands {
                     if (value == null) throw new IllegalArgumentException(INGEST_EDIT_VALUE_ARG_ERROR);
 
                     Long sessionId = Long.parseLong(sessionStr);
-                    Integer rowIndex = Integer.parseInt(rowStr);
+                    Long rowIndex = Long.parseLong(rowStr);
 
                     stagingService.editRow(sessionId, rowIndex, field, value);
                     ctx.outputWriter().printf("Row %d in session %d updated (%s = %s).%n", rowIndex, sessionId, field, value);

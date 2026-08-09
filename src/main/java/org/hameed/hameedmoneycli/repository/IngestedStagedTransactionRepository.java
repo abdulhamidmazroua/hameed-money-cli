@@ -21,5 +21,5 @@ public interface IngestedStagedTransactionRepository extends JpaRepository<Inges
 
     long countBySessionIdAndParseErrorIsNotNull(Long sessionId);
 
-    Optional<IngestedStagedTransaction> findBySessionIdAndRowIndex(Long sessionId, Integer rowIndex);
+    Optional<IngestedStagedTransaction> findBySessionIdAndRowIndex(Long sessionId, Long rowIndex);
 }

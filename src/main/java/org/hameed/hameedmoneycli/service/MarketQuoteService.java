@@ -110,7 +110,7 @@ public class MarketQuoteService {
         AssetCategory baseCat = base.getCategory();
         AssetCategory quoteCat = quote.getCategory();
 
-        if (isSecurity(baseCat) && quoteCat == AssetCategory.CASH) {
+        if (baseCat.isSecurity() && quoteCat == AssetCategory.CASH) {
             String nativeCurrency = extractNativeCurrency(base);
             if (nativeCurrency != null && !nativeCurrency.equalsIgnoreCase(quote.getSymbol())) {
                 System.out.println("Warning: " + base.getSymbol() + " trades in " + nativeCurrency +
@@ -136,7 +136,7 @@ public class MarketQuoteService {
             return base.getSymbol() + "=F";
         }
 
-        if (baseCat == AssetCategory.CASH && isSecurity(quoteCat)) {
+        if (baseCat == AssetCategory.CASH && quoteCat.isSecurity()) {
             throw new IllegalArgumentException(
                     "Cannot fetch CASH -> " + quote.getSymbol() + " (" + quoteCat + ") directly. " +
                     "Try: `quote fetch --base " + quote.getSymbol() + " --quote " + base.getSymbol() + "`"
@@ -178,10 +178,6 @@ public class MarketQuoteService {
             return asset.getMetadata().get("exchange");
         }
         return null;
-    }
-
-    private boolean isSecurity(AssetCategory category) {
-        return category == AssetCategory.STOCK || category == AssetCategory.ETF || category == AssetCategory.MUTUAL_FUND;
     }
 
     private String extractNativeCurrency(Asset asset) {

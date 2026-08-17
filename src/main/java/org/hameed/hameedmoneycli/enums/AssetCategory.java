@@ -33,4 +33,8 @@ public enum AssetCategory {
                 this == CRYPTO || this == COMMODITY;
     }
 
+    public boolean isSecurity() {
+        return this == STOCK || this == ETF || this == MUTUAL_FUND;
+    }
+
 }

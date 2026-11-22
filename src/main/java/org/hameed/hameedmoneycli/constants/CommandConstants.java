@@ -325,6 +325,29 @@ public final class CommandConstants {
             """ + HYBRID_USAGE_WARNING;
     public static final String REPORT_INCOME_COMMAND_HELP = REPORT_INCOME_COMMAND_DESCRIPTION + "\n" + REPORT_INCOME_COMMAND_USAGE;
 
+    // report cashflow
+    public static final String REPORT_CASHFLOW_COMMAND_DESCRIPTION = "Income vs. expenses, savings rate, monthly burn and cash runway for a period (default: this month)";
+    public static final String REPORT_CASHFLOW_COMMAND_USAGE = """
+            Usage:
+              Options:
+                report cashflow [--currency <currency> (-c)] [--period <period> (-p)]
+                report cashflow [--currency <currency> (-c)] [--start-date <date> (-s)] [--end-date <date> (-e)]
+              Positional:
+                report cashflow [<currency>] [<period>]
+
+              Periods:  this-month (default), last-month, this-year, last-year, all
+              Dates:    dd-MM-yyyy or yyyy-MM-dd; end date is inclusive.
+
+              Net = Income − Expenses. Burn = Expenses / elapsed months.
+              Runway = current CASH asset balances / Burn.
+
+              Examples:
+                report cashflow
+                report cashflow USD this-year
+                report cashflow -s 01-01-2026 -e 31-03-2026
+            """ + HYBRID_USAGE_WARNING;
+    public static final String REPORT_CASHFLOW_COMMAND_HELP = REPORT_CASHFLOW_COMMAND_DESCRIPTION + "\n" + REPORT_CASHFLOW_COMMAND_USAGE;
+
     // audit account
     public static final String AUDIT_ACCOUNT_COMMAND_DESCRIPTION = "Verify an account's computed balance";
     public static final String AUDIT_ACCOUNT_COMMAND_USAGE = """

@@ -24,6 +24,10 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
     @Query("SELECT MIN(t.transactionDate), MAX(t.transactionDate) FROM Transaction t WHERE t.fromAccount.id = :accountId OR t.toAccount.id = :accountId")
     List<Object[]> findDateRangeByAccountId(Long accountId);
 
+    /** Earliest non-system transaction date (epoch millis), or null when there is none. */
+    @Query("SELECT MIN(t.transactionDate) FROM Transaction t WHERE t.isSystemAdjustment = false")
+    Long findFirstActivityDate();
+
     @Query("SELECT t FROM Transaction t WHERE t.isSystemAdjustment = true")
     List<Transaction> findAllSystemAdjustments();
 

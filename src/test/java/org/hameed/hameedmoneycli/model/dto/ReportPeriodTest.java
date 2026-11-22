@@ -118,4 +118,25 @@ class ReportPeriodTest {
         assertFalse(ReportPeriod.isPreset("EGP"));
         assertFalse(ReportPeriod.isPreset(null));
     }
+
+    @Test
+    void elapsedMonthsFullPastMonth() {
+        ReportPeriod p = ReportPeriod.resolve("last-month", null, null, TODAY); // October: 31 days
+        assertEquals(0, new java.math.BigDecimal("1.0185").compareTo(p.elapsedMonths(null, TODAY)));
+    }
+
+    @Test
+    void elapsedMonthsIgnoresFuturePartOfCurrentMonth() {
+        ReportPeriod p = ReportPeriod.resolve("this-month", null, null, TODAY); // Nov 1..22 = 22 days
+        assertEquals(0, new java.math.BigDecimal("0.7228").compareTo(p.elapsedMonths(null, TODAY)));
+    }
+
+    @Test
+    void elapsedMonthsAllUsesFirstActivity() {
+        ReportPeriod all = ReportPeriod.resolve("all", null, null, TODAY);
+        assertEquals(0, java.math.BigDecimal.ZERO.compareTo(all.elapsedMonths(null, TODAY)));
+        // 2025-11-23..2026-11-22 = 365 days ≈ 11.99 months
+        assertEquals(0, new java.math.BigDecimal("11.9920")
+                .compareTo(all.elapsedMonths(LocalDate.of(2025, 11, 23), TODAY)));
+    }
 }

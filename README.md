@@ -78,6 +78,7 @@ quote set EGP USD --price 0.020
 # 4. See your net worth and this month's income
 report nw EGP
 report income EGP
+report cashflow EGP this-year
 
 # 5. Import a bank statement
 source add --name "My Bank" --code MY_BANK --file statement.csv   # register source
@@ -438,6 +439,7 @@ report nw USD
 | `hmc db backup [--output <dir>]` | Backup the database |
 | `report nw [<currency>]` | Net worth report (default: `defaultCurrency` from config, else EGP) |
 | `report income [<currency>] [<period>]` | Net income by source. Periods: `this-month` (default), `last-month`, `this-year`, `last-year`, `all`; or `-s`/`-e` dates (`dd-MM-yyyy`, end inclusive) |
+| `report cashflow [<currency>] [<period>]` | Income vs. expenses, savings rate, avg monthly burn and cash runway. Same period/date options as `report income` |
 | `report data-integrity` | Ledger health check |
 | `audit account [<id-or-name>]` | Audit a single account |
 | `audit trail` | Full ledger audit |

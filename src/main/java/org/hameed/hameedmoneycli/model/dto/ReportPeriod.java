@@ -2,7 +2,10 @@ package org.hameed.hameedmoneycli.model.dto;
 
 import org.hameed.hameedmoneycli.util.DateUtil;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.stream.Collectors;
 
@@ -114,6 +117,30 @@ public record ReportPeriod(LocalDate start, LocalDate end, String label) {
     /** Exclusive upper bound in epoch millis (start of the day after {@code end} in the app timezone). */
     public long endExclusiveMillis() {
         return end == null ? Long.MAX_VALUE : end.plusDays(1).atStartOfDay(DateUtil.zone()).toInstant().toEpochMilli();
+    }
+
+    /** Average Gregorian month length in days (365.2425 / 12). */
+    private static final BigDecimal AVG_DAYS_PER_MONTH = new BigDecimal("30.436875");
+
+    /**
+     * Number of months that have actually elapsed in this period, as a fraction (days / average month length).
+     * The future part of the period is ignored, so "this-month" on the 15th counts about half a month.
+     * An open start falls back to {@code firstActivity}; with no activity at all it returns zero.
+     *
+     * @param firstActivity date of the earliest transaction, or null when there are none
+     * @param today         the current date in the app timezone
+     */
+    public BigDecimal elapsedMonths(LocalDate firstActivity, LocalDate today) {
+        LocalDate from = start != null ? start : firstActivity;
+        if (from == null) {
+            return BigDecimal.ZERO;
+        }
+        LocalDate to = end == null || end.isAfter(today) ? today : end;
+        if (to.isBefore(from)) {
+            return BigDecimal.ZERO;
+        }
+        long days = ChronoUnit.DAYS.between(from, to) + 1;
+        return BigDecimal.valueOf(days).divide(AVG_DAYS_PER_MONTH, 4, RoundingMode.HALF_UP);
     }
 
     public String describe() {

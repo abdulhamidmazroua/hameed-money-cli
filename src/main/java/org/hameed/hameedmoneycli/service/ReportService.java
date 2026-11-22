@@ -3,6 +3,7 @@ package org.hameed.hameedmoneycli.service;
 import lombok.RequiredArgsConstructor;
 import org.hameed.hameedmoneycli.enums.AccountType;
 import org.hameed.hameedmoneycli.enums.AssetCategory;
+import org.hameed.hameedmoneycli.model.dto.CashflowReport;
 import org.hameed.hameedmoneycli.model.dto.DataIntegrityReport;
 import org.hameed.hameedmoneycli.model.dto.IncomeReport;
 import org.hameed.hameedmoneycli.model.dto.NetworthReport;
@@ -14,10 +15,13 @@ import org.hameed.hameedmoneycli.model.entity.Transaction;
 import org.hameed.hameedmoneycli.repository.AccountRepository;
 import org.hameed.hameedmoneycli.repository.AssetRepository;
 import org.hameed.hameedmoneycli.repository.TransactionRepository;
+import org.hameed.hameedmoneycli.util.DateUtil;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -131,35 +135,90 @@ public class ReportService {
         Asset targetAsset = assetRepository.findBySymbolAndCategory(symbol, AssetCategory.CASH)
                 .orElseThrow(() -> new IllegalArgumentException("Currency not found: " + symbol));
 
-        List<Object[]> rows = transactionRepository.sumNetOutflowByAccountType(
-                AccountType.INCOME, period.startMillis(), period.endExclusiveMillis());
-
         Map<Long, BigDecimal> rateCache = new HashMap<>();
-        List<IncomeReport.IncomeLine> lines = new ArrayList<>();
-        BigDecimal totalIncome = BigDecimal.ZERO;
+        List<CashflowReport.FlowLine> flows = flowLines(AccountType.INCOME, false, period, targetAsset, financialOracle, rateCache);
 
-        for (Object[] row : rows) {
+        List<IncomeReport.IncomeLine> lines = flows.stream()
+                .map(f -> new IncomeReport.IncomeLine(f.accountName(), f.nativeAmount(), f.convertedAmount(), f.assetSymbol()))
+                .toList();
+        return new IncomeReport(sumConverted(flows), symbol, period, lines);
+    }
+
+    public CashflowReport generateCashflowReport(String currency, ReportPeriod period) {
+        String symbol = currency.trim().toUpperCase();
+        FinancialOracle financialOracle = marketQuoteService.getFinancialOracle();
+        Asset targetAsset = assetRepository.findBySymbolAndCategory(symbol, AssetCategory.CASH)
+                .orElseThrow(() -> new IllegalArgumentException("Currency not found: " + symbol));
+        Map<Long, BigDecimal> rateCache = new HashMap<>();
+
+        List<CashflowReport.FlowLine> incomeLines =
+                flowLines(AccountType.INCOME, false, period, targetAsset, financialOracle, rateCache);
+        List<CashflowReport.FlowLine> expenseLines =
+                flowLines(AccountType.EXPENSE, true, period, targetAsset, financialOracle, rateCache);
+
+        BigDecimal income = sumConverted(incomeLines);
+        BigDecimal expenses = sumConverted(expenseLines);
+        BigDecimal net = income.subtract(expenses);
+        BigDecimal savingsRate = income.signum() > 0
+                ? net.multiply(BigDecimal.valueOf(100)).divide(income, 4, RoundingMode.HALF_UP)
+                : null;
+
+        LocalDate today = LocalDate.now(DateUtil.zone());
+        Long firstMillis = transactionRepository.findFirstActivityDate();
+        LocalDate firstActivity = firstMillis == null ? null
+                : Instant.ofEpochMilli(firstMillis).atZone(DateUtil.zone()).toLocalDate();
+        BigDecimal months = period.elapsedMonths(firstActivity, today);
+        BigDecimal burn = months.signum() > 0 ? expenses.divide(months, 4, RoundingMode.HALF_UP) : null;
+
+        BigDecimal liquidCash = BigDecimal.ZERO;
+        for (Account account : accountRepository.getLeafAccounts()) {
+            if (account.getMasterType() != AccountType.ASSET
+                    || account.getAsset().getCategory() != AssetCategory.CASH) {
+                continue;
+            }
+            BigDecimal balance = transactionRepository.getAccountBalance(account.getId());
+            liquidCash = liquidCash.add(balance.multiply(rate(account, targetAsset, financialOracle, rateCache)));
+        }
+        BigDecimal runway = burn != null && burn.signum() > 0
+                ? liquidCash.max(BigDecimal.ZERO).divide(burn, 4, RoundingMode.HALF_UP)
+                : null;
+
+        return new CashflowReport(income, expenses, net, savingsRate, months, burn, liquidCash, runway,
+                symbol, period, incomeLines, expenseLines);
+    }
+
+    /**
+     * Net flow per leaf account of {@code type} in the period, converted to the target asset and sorted largest first.
+     * INCOME flows are Σfrom − Σto; with {@code negate} the sign flips to Σto − Σfrom, the EXPENSE balance rule.
+     */
+    private List<CashflowReport.FlowLine> flowLines(AccountType type, boolean negate, ReportPeriod period,
+                                                    Asset targetAsset, FinancialOracle oracle,
+                                                    Map<Long, BigDecimal> rateCache) {
+        List<CashflowReport.FlowLine> lines = new ArrayList<>();
+        for (Object[] row : transactionRepository.sumNetOutflowByAccountType(
+                type, period.startMillis(), period.endExclusiveMillis())) {
             Account account = (Account) row[0];
             BigDecimal net = toBigDecimal(row[1]);
+            if (negate) {
+                net = net.negate();
+            }
             if (net.signum() == 0) {
                 continue;
             }
-
-            BigDecimal rate = rateCache.computeIfAbsent(
-                    account.getAsset().getId(),
-                    key -> financialOracle.getRate(key, targetAsset.getId())
-            );
-            BigDecimal converted = net.multiply(rate);
-
-            lines.add(new IncomeReport.IncomeLine(
-                    account.getName(), net, converted, account.getAsset().getSymbol()
-            ));
-            totalIncome = totalIncome.add(converted);
+            BigDecimal converted = net.multiply(rate(account, targetAsset, oracle, rateCache));
+            lines.add(new CashflowReport.FlowLine(account.getName(), net, converted, account.getAsset().getSymbol()));
         }
+        lines.sort(Comparator.comparing(CashflowReport.FlowLine::convertedAmount).reversed());
+        return lines;
+    }
 
-        lines.sort(Comparator.comparing(IncomeReport.IncomeLine::convertedAmount).reversed());
+    private static BigDecimal rate(Account account, Asset targetAsset, FinancialOracle oracle,
+                                   Map<Long, BigDecimal> rateCache) {
+        return rateCache.computeIfAbsent(account.getAsset().getId(), key -> oracle.getRate(key, targetAsset.getId()));
+    }
 
-        return new IncomeReport(totalIncome, symbol, period, lines);
+    private static BigDecimal sumConverted(List<CashflowReport.FlowLine> lines) {
+        return lines.stream().map(CashflowReport.FlowLine::convertedAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     private static BigDecimal toBigDecimal(Object value) {

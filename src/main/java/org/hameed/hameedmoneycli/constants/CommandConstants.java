@@ -45,6 +45,7 @@ public final class CommandConstants {
     public static final String TRANSACTION_TYPE_ARG = "transaction-type";
     public static final String START_DATE_ARG = "start-date";
     public static final String END_DATE_ARG = "end-date";
+    public static final String PERIOD_ARG = "period";
     public static final String PARENT_ACCOUNT_ID_ARG = "parent-account-id";
     public static final String PARENT_ACCOUNT_NAME_ARG = "parent-account-name";
     public static final String ID_ARG = "id";
@@ -301,6 +302,28 @@ public final class CommandConstants {
             Usage:
               report data-integrity""";
     public static final String REPORT_DATA_INTEGRITY_COMMAND_HELP = REPORT_DATA_INTEGRITY_COMMAND_DESCRIPTION + "\n" + REPORT_DATA_INTEGRITY_COMMAND_USAGE;
+
+    // report income
+    public static final String REPORT_INCOME_COMMAND_DESCRIPTION = "Net income by source for a period (default: this month, defaultCurrency from config)";
+    public static final String REPORT_INCOME_COMMAND_USAGE = """
+            Usage:
+              Options:
+                report income [--currency <currency> (-c)] [--period <period> (-p)]
+                report income [--currency <currency> (-c)] [--start-date <date> (-s)] [--end-date <date> (-e)]
+              Positional:
+                report income [<currency>] [<period>]
+
+              Periods:  this-month (default), last-month, this-year, last-year, all
+              Dates:    dd-MM-yyyy or yyyy-MM-dd; end date is inclusive.
+                        Only --start-date → through today. Only --end-date → from the beginning.
+                        Dates cannot be combined with --period.
+
+              Examples:
+                report income
+                report income USD last-year
+                report income -s 01-01-2026 -e 31-03-2026
+            """ + HYBRID_USAGE_WARNING;
+    public static final String REPORT_INCOME_COMMAND_HELP = REPORT_INCOME_COMMAND_DESCRIPTION + "\n" + REPORT_INCOME_COMMAND_USAGE;
 
     // audit account
     public static final String AUDIT_ACCOUNT_COMMAND_DESCRIPTION = "Verify an account's computed balance";

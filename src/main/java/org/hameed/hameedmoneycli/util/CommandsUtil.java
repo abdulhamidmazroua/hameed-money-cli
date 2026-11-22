@@ -58,6 +58,7 @@ public final class CommandsUtil {
                 
                   \033[32m5.\033[0m \033[37mReports & Audit\033[0m  \u2014  understand your financial picture
                      \033[2m\u2022\033[0m \033[37mreport nw EGP\033[0m           \u2014  net worth statement (balance sheet)
+                     \033[2m\u2022\033[0m \033[37mreport income last-month\033[0m \u2014  net income by source (default: this month)
                      \033[2m\u2022\033[0m \033[37mreport data-integrity\033[0m   \u2014  check ledger integrity (debits vs credits)
                      \033[2m\u2022\033[0m \033[37maudit account <id>\033[0m      \u2014  verify a specific account's balance
                      \033[2m\u2022\033[0m \033[37maudit trail\033[0m             \u2014  full ledger audit
@@ -95,6 +96,7 @@ public final class CommandsUtil {
             first launch. Full example:
 
               {
+                "defaultCurrency": "EGP",
                 "marketDataProvider": "eodhd",
                 "eodhd": { "apiKey": "YOUR_EODHD_API_KEY" },
                 "llm": {
@@ -326,6 +328,9 @@ public final class CommandsUtil {
 
             \033[33mREPORTS & AUDIT\033[0m
               \033[37mreport nw EGP\033[0m           \u2014  net worth (balance sheet in your base currency)
+              \033[37mreport income [<cur>] [<period>]\033[0m
+                                      \u2014  net income by source; periods: this-month (default),
+                                         last-month, this-year, last-year, all; or -s/-e dates
               \033[37mreport data-integrity\033[0m   \u2014  verify debits = credits across the ledger
               \033[37maudit account Cash\033[0m      \u2014  verify a single account's computed balance
               \033[37maudit trail\033[0m             \u2014  full transaction trail with running totals

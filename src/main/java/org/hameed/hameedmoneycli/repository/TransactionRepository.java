@@ -1,9 +1,11 @@
 package org.hameed.hameedmoneycli.repository;
 
+import org.hameed.hameedmoneycli.enums.AccountType;
 import org.hameed.hameedmoneycli.model.entity.Transaction;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
@@ -45,4 +47,25 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
             join accounts a on a.id = :accountId
             """, nativeQuery = true)
     BigDecimal getAccountBalance(Long accountId);
+
+    /**
+     * Net flow (Σfrom − Σto) per leaf account of the given type within [from, toExclusive).
+     * Matches the INCOME/LIABILITY/SYSTEM balance rule in {@link #getAccountBalance(Long)}.
+     * Each row is {@code [Account, BigDecimal]}.
+     */
+    @Query("""
+            SELECT a,
+                   SUM(CASE WHEN t.fromAccount = a THEN t.fromAmount ELSE 0 END)
+                 - SUM(CASE WHEN t.toAccount = a THEN t.toAmount ELSE 0 END)
+            FROM Transaction t
+            JOIN Account a ON (t.fromAccount = a OR t.toAccount = a)
+            WHERE a.masterType = :type
+              AND a.asset IS NOT NULL
+              AND t.transactionDate >= :from
+              AND t.transactionDate < :toExclusive
+            GROUP BY a
+            """)
+    List<Object[]> sumNetOutflowByAccountType(@Param("type") AccountType type,
+                                              @Param("from") long from,
+                                              @Param("toExclusive") long toExclusive);
 }

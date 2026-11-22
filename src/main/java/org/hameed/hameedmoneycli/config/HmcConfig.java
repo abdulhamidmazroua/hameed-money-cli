@@ -14,6 +14,8 @@ import java.nio.file.Path;
 @Component
 public class HmcConfig {
 
+    public static final String DEFAULT_CURRENCY = "EGP";
+
     private static final Logger log = LoggerFactory.getLogger(HmcConfig.class);
 
     private final Path configPath;
@@ -91,6 +93,12 @@ public class HmcConfig {
         return t.apiKey;
     }
 
+    /** Report currency used when none is given on the command line ("defaultCurrency" in config.json). */
+    public String getDefaultCurrency() {
+        String c = data().defaultCurrency;
+        return c == null || c.isBlank() ? DEFAULT_CURRENCY : c.trim().toUpperCase();
+    }
+
     public LlmConfig getLlmConfig() {
         return data().llm;
     }
@@ -104,12 +112,13 @@ public class HmcConfig {
     ) {}
 
     private record ConfigData(
+            @JsonProperty("defaultCurrency") String defaultCurrency,
             @JsonProperty("marketDataProvider") String marketDataProvider,
             @JsonProperty("eodhd") EodhdConfig eodhd,
             @JsonProperty("twelveData") TwelveDataConfig twelveData,
             @JsonProperty("llm") LlmConfig llm
     ) {
-        static final ConfigData DEFAULT = new ConfigData("eodhd", new EodhdConfig(""), new TwelveDataConfig(""), null);
+        static final ConfigData DEFAULT = new ConfigData(DEFAULT_CURRENCY, "eodhd", new EodhdConfig(""), new TwelveDataConfig(""), null);
 
         private record EodhdConfig(@JsonProperty("apiKey") String apiKey) {}
         private record TwelveDataConfig(@JsonProperty("apiKey") String apiKey) {}

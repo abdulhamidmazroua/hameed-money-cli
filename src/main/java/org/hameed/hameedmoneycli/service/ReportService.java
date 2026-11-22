@@ -4,7 +4,9 @@ import lombok.RequiredArgsConstructor;
 import org.hameed.hameedmoneycli.enums.AccountType;
 import org.hameed.hameedmoneycli.enums.AssetCategory;
 import org.hameed.hameedmoneycli.model.dto.DataIntegrityReport;
+import org.hameed.hameedmoneycli.model.dto.IncomeReport;
 import org.hameed.hameedmoneycli.model.dto.NetworthReport;
+import org.hameed.hameedmoneycli.model.dto.ReportPeriod;
 import org.hameed.hameedmoneycli.model.entity.Account;
 import org.hameed.hameedmoneycli.model.entity.Asset;
 import org.hameed.hameedmoneycli.model.entity.FinancialOracle;
@@ -17,6 +19,7 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -120,6 +123,53 @@ public class ReportService {
         }
 
         return new DataIntegrityReport(openingSection, increaseSection, decreaseSection, health);
+    }
+
+    public IncomeReport generateIncomeReport(String currency, ReportPeriod period) {
+        String symbol = currency.trim().toUpperCase();
+        FinancialOracle financialOracle = marketQuoteService.getFinancialOracle();
+        Asset targetAsset = assetRepository.findBySymbolAndCategory(symbol, AssetCategory.CASH)
+                .orElseThrow(() -> new IllegalArgumentException("Currency not found: " + symbol));
+
+        List<Object[]> rows = transactionRepository.sumNetOutflowByAccountType(
+                AccountType.INCOME, period.startMillis(), period.endExclusiveMillis());
+
+        Map<Long, BigDecimal> rateCache = new HashMap<>();
+        List<IncomeReport.IncomeLine> lines = new ArrayList<>();
+        BigDecimal totalIncome = BigDecimal.ZERO;
+
+        for (Object[] row : rows) {
+            Account account = (Account) row[0];
+            BigDecimal net = toBigDecimal(row[1]);
+            if (net.signum() == 0) {
+                continue;
+            }
+
+            BigDecimal rate = rateCache.computeIfAbsent(
+                    account.getAsset().getId(),
+                    key -> financialOracle.getRate(key, targetAsset.getId())
+            );
+            BigDecimal converted = net.multiply(rate);
+
+            lines.add(new IncomeReport.IncomeLine(
+                    account.getName(), net, converted, account.getAsset().getSymbol()
+            ));
+            totalIncome = totalIncome.add(converted);
+        }
+
+        lines.sort(Comparator.comparing(IncomeReport.IncomeLine::convertedAmount).reversed());
+
+        return new IncomeReport(totalIncome, symbol, period, lines);
+    }
+
+    private static BigDecimal toBigDecimal(Object value) {
+        if (value == null) {
+            return BigDecimal.ZERO;
+        }
+        if (value instanceof BigDecimal bd) {
+            return bd;
+        }
+        return new BigDecimal(value.toString());
     }
 
     private DataIntegrityReport.Section buildSection(Map<String, BigDecimal> breakdown) {

@@ -75,8 +75,9 @@ account init --name "My Wallet" --asset EGP --balance 5000
 # 3. Set a market quote
 quote set EGP USD --price 0.020
 
-# 4. See your net worth
+# 4. See your net worth and this month's income
 report nw EGP
+report income EGP
 
 # 5. Import a bank statement
 source add --name "My Bank" --code MY_BANK --file statement.csv   # register source
@@ -120,6 +121,7 @@ Full example with all options:
 
 ```json
 {
+  "defaultCurrency": "EGP",
   "marketDataProvider": "eodhd",
   "eodhd": { "apiKey": "YOUR_EODHD_API_KEY" },
   "twelveData": { "apiKey": "YOUR_TWELVEDATA_API_KEY" },
@@ -434,7 +436,8 @@ report nw USD
 | `hmc init --account <name> --balance <amt>` | Post an opening balance |
 | `hmc reconcile --account <name> --actual <amt>` | Fix a balance discrepancy |
 | `hmc db backup [--output <dir>]` | Backup the database |
-| `report nw [<currency>]` | Net worth report (default: EGP) |
+| `report nw [<currency>]` | Net worth report (default: `defaultCurrency` from config, else EGP) |
+| `report income [<currency>] [<period>]` | Net income by source. Periods: `this-month` (default), `last-month`, `this-year`, `last-year`, `all`; or `-s`/`-e` dates (`dd-MM-yyyy`, end inclusive) |
 | `report data-integrity` | Ledger health check |
 | `audit account [<id-or-name>]` | Audit a single account |
 | `audit trail` | Full ledger audit |

@@ -37,4 +37,4 @@ jobs:
       - name: Build native image
         run: ./mvnw -B -Pnative native:compile -DskipTests
       - name: Smoke test
-        run: ./target/hameed-money-cli help > /dev/null
+        run: ./target/hameed-money-computer help > /dev/null

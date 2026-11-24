@@ -9,10 +9,10 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>org.hameed</groupId>
-    <artifactId>hameed-money-cli</artifactId>
+    <artifactId>hameed-money-computer</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>hameed-money-cli</name>
-    <description>hameed-money-cli</description>
+    <name>hameed-money-computer</name>
+    <description>Hameed Money Computer (HMC): a private, double-entry personal finance engine</description>
     <url/>
     <licenses>
         <license/>

@@ -1,10 +1,9 @@
 package org.hameed.hameedmoneycli;
 
+import org.hameed.hameedmoneycli.support.IntegrationTest;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
 
-@SpringBootTest
-class HameedMoneyCliApplicationTests {
+class HameedMoneyCliApplicationTests extends IntegrationTest {
 
     @Test
     void contextLoads() {

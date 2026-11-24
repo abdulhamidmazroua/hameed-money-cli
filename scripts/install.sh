@@ -12,7 +12,7 @@ HMC_BIN="$HOME/.local/bin/hmc"
 # ---------------------------------------------------------------
 echo ""
 echo -e "${CYAN}╔══════════════════════════════════════════════╗${NC}"
-echo -e "${CYAN}║        HameedMoneyCLI — Installer           ║${NC}"
+echo -e "${CYAN}║     Hameed Money Computer — Installer        ║${NC}"
 echo -e "${CYAN}╚══════════════════════════════════════════════╝${NC}"
 echo ""
 
@@ -35,7 +35,7 @@ info "Building native binary (this may take a couple of minutes)..."
 # ---------------------------------------------------------------
 info "Installing hmc to ~/.local/bin..."
 mkdir -p "$HOME/.local/bin"
-cp target/hameed-money-cli "$HMC_BIN"
+cp target/hameed-money-computer "$HMC_BIN"
 chmod +x "$HMC_BIN"
 
 if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then

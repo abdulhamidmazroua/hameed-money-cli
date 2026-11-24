@@ -1,6 +1,6 @@
-# HameedMoneyCLI
+# Hameed Money Computer (HMC)
 
-A double-entry personal finance ledger for the command line. Ingest bank statements from any source, auto-classify transactions with rules + LLM, and generate multi-currency reports.
+A private, double-entry personal finance engine. Ingest bank statements, classify transactions, and generate multi-currency reports — from the command line today, with desktop and mobile clients planned.
 
 Built with **Spring Boot 4 + Spring Shell 4 + GraalVM 25**, powered by **SQLite**.
 
@@ -22,7 +22,7 @@ Built with **Spring Boot 4 + Spring Shell 4 + GraalVM 25**, powered by **SQLite*
 
 ## Overview
 
-**HameedMoneyCLI** is a personal finance manager that runs entirely in your terminal. It implements **double-entry accounting** — every transaction moves money from one account to another — and computes all balances on demand from the transaction log. This means the ledger is always internally consistent and auditable.
+**Hameed Money Computer (HMC)** is a private personal finance manager. Today it runs in your terminal. It implements **double-entry accounting** — every transaction moves money from one account to another — and computes all balances on demand from the transaction log. This means the ledger is always internally consistent and auditable.
 
 ### What it does
 
@@ -112,7 +112,7 @@ ingest apply --session 1                                          # commit to le
 Or manually:
 
 ```bash
-cp target/hameed-money-cli ~/.local/bin/hmc
+cp target/hameed-money-computer ~/.local/bin/hmc
 help                  # creates ~/.hmc/ on first launch
 ```
 
@@ -450,7 +450,7 @@ report nw USD
 ## Project Structure
 
 ```
-src/main/java/org/hameed/hameedmoneycli/
+src/main/java/org/hameed/hameedmoneycomputer/
 ├── commands/        # Spring Shell command definitions
 ├── config/          # Spring beans, RestClient, strategy wiring
 ├── constants/       # Command help strings, LLM prompts

@@ -1,161 +1,169 @@
--- Create unique indexes for composite constraints (Hibernate's ddl-auto=update
+-- Unique indexes for composite constraints (Hibernate's ddl-auto=update
 -- can't add these via ALTER TABLE on SQLite — they must be inline in CREATE TABLE)
 CREATE UNIQUE INDEX IF NOT EXISTS idx_asset_symbol_category ON assets(symbol, category);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_market_quote_key ON market_quotes(base_asset_id, quote_asset_id, quote_date);
 
--- Seed currencies (idempotent)
+-- Active ISO 4217 currencies (155; funds, metals, test and retired codes excluded). Idempotent.
+-- No accounts are seeded: `setup --currency <CUR>` creates the starter tree in the user's base currency.
 INSERT INTO assets (name, symbol, category, is_tradable)
-VALUES ('Egyptian Pound', 'EGP', 'CASH', FALSE),
-       ('US Dollar', 'USD', 'CASH', FALSE),
-       ('Euro', 'EUR', 'CASH', FALSE),
-       ('British Pound', 'GBP', 'CASH', FALSE),
-       ('Swiss Franc', 'CHF', 'CASH', FALSE),
-       ('Canadian Dollar', 'CAD', 'CASH', FALSE),
+VALUES ('United Arab Emirates Dirham', 'AED', 'CASH', FALSE),
+       ('Afghan Afghani', 'AFN', 'CASH', FALSE),
+       ('Albanian Lek', 'ALL', 'CASH', FALSE),
+       ('Armenian Dram', 'AMD', 'CASH', FALSE),
+       ('Angolan Kwanza', 'AOA', 'CASH', FALSE),
+       ('Argentine Peso', 'ARS', 'CASH', FALSE),
        ('Australian Dollar', 'AUD', 'CASH', FALSE),
-       ('Japanese Yen', 'JPY', 'CASH', FALSE),
+       ('Aruban Florin', 'AWG', 'CASH', FALSE),
+       ('Azerbaijani Manat', 'AZN', 'CASH', FALSE),
+       ('Bosnia-Herzegovina Convertible Mark', 'BAM', 'CASH', FALSE),
+       ('Barbadian Dollar', 'BBD', 'CASH', FALSE),
+       ('Bangladeshi Taka', 'BDT', 'CASH', FALSE),
+       ('Bahraini Dinar', 'BHD', 'CASH', FALSE),
+       ('Burundian Franc', 'BIF', 'CASH', FALSE),
+       ('Bermudan Dollar', 'BMD', 'CASH', FALSE),
+       ('Brunei Dollar', 'BND', 'CASH', FALSE),
+       ('Bolivian Boliviano', 'BOB', 'CASH', FALSE),
+       ('Brazilian Real', 'BRL', 'CASH', FALSE),
+       ('Bahamian Dollar', 'BSD', 'CASH', FALSE),
+       ('Bhutanese Ngultrum', 'BTN', 'CASH', FALSE),
+       ('Botswanan Pula', 'BWP', 'CASH', FALSE),
+       ('Belarusian Ruble', 'BYN', 'CASH', FALSE),
+       ('Belize Dollar', 'BZD', 'CASH', FALSE),
+       ('Canadian Dollar', 'CAD', 'CASH', FALSE),
+       ('Congolese Franc', 'CDF', 'CASH', FALSE),
+       ('Swiss Franc', 'CHF', 'CASH', FALSE),
+       ('Chilean Peso', 'CLP', 'CASH', FALSE),
        ('Chinese Yuan', 'CNY', 'CASH', FALSE),
-       ('Saudi Riyal', 'SAR', 'CASH', FALSE),
-       ('UAE Dirham', 'AED', 'CASH', FALSE),
+       ('Colombian Peso', 'COP', 'CASH', FALSE),
+       ('Costa Rican Colón', 'CRC', 'CASH', FALSE),
+       ('Cuban Peso', 'CUP', 'CASH', FALSE),
+       ('Cape Verdean Escudo', 'CVE', 'CASH', FALSE),
+       ('Czech Koruna', 'CZK', 'CASH', FALSE),
+       ('Djiboutian Franc', 'DJF', 'CASH', FALSE),
+       ('Danish Krone', 'DKK', 'CASH', FALSE),
+       ('Dominican Peso', 'DOP', 'CASH', FALSE),
+       ('Algerian Dinar', 'DZD', 'CASH', FALSE),
+       ('Egyptian Pound', 'EGP', 'CASH', FALSE),
+       ('Eritrean Nakfa', 'ERN', 'CASH', FALSE),
+       ('Ethiopian Birr', 'ETB', 'CASH', FALSE),
+       ('Euro', 'EUR', 'CASH', FALSE),
+       ('Fijian Dollar', 'FJD', 'CASH', FALSE),
+       ('Falkland Islands Pound', 'FKP', 'CASH', FALSE),
+       ('British Pound', 'GBP', 'CASH', FALSE),
+       ('Georgian Lari', 'GEL', 'CASH', FALSE),
+       ('Ghanaian Cedi', 'GHS', 'CASH', FALSE),
+       ('Gibraltar Pound', 'GIP', 'CASH', FALSE),
+       ('Gambian Dalasi', 'GMD', 'CASH', FALSE),
+       ('Guinean Franc', 'GNF', 'CASH', FALSE),
+       ('Guatemalan Quetzal', 'GTQ', 'CASH', FALSE),
+       ('Guyanaese Dollar', 'GYD', 'CASH', FALSE),
+       ('Hong Kong Dollar', 'HKD', 'CASH', FALSE),
+       ('Honduran Lempira', 'HNL', 'CASH', FALSE),
+       ('Haitian Gourde', 'HTG', 'CASH', FALSE),
+       ('Hungarian Forint', 'HUF', 'CASH', FALSE),
+       ('Indonesian Rupiah', 'IDR', 'CASH', FALSE),
+       ('Israeli New Shekel', 'ILS', 'CASH', FALSE),
+       ('Indian Rupee', 'INR', 'CASH', FALSE),
+       ('Iraqi Dinar', 'IQD', 'CASH', FALSE),
+       ('Iranian Rial', 'IRR', 'CASH', FALSE),
+       ('Icelandic Króna', 'ISK', 'CASH', FALSE),
+       ('Jamaican Dollar', 'JMD', 'CASH', FALSE),
+       ('Jordanian Dinar', 'JOD', 'CASH', FALSE),
+       ('Japanese Yen', 'JPY', 'CASH', FALSE),
+       ('Kenyan Shilling', 'KES', 'CASH', FALSE),
+       ('Kyrgystani Som', 'KGS', 'CASH', FALSE),
+       ('Cambodian Riel', 'KHR', 'CASH', FALSE),
+       ('Comorian Franc', 'KMF', 'CASH', FALSE),
+       ('North Korean Won', 'KPW', 'CASH', FALSE),
+       ('South Korean Won', 'KRW', 'CASH', FALSE),
        ('Kuwaiti Dinar', 'KWD', 'CASH', FALSE),
+       ('Cayman Islands Dollar', 'KYD', 'CASH', FALSE),
+       ('Kazakhstani Tenge', 'KZT', 'CASH', FALSE),
+       ('Laotian Kip', 'LAK', 'CASH', FALSE),
+       ('Lebanese Pound', 'LBP', 'CASH', FALSE),
+       ('Sri Lankan Rupee', 'LKR', 'CASH', FALSE),
+       ('Liberian Dollar', 'LRD', 'CASH', FALSE),
+       ('Lesotho Loti', 'LSL', 'CASH', FALSE),
+       ('Libyan Dinar', 'LYD', 'CASH', FALSE),
+       ('Moroccan Dirham', 'MAD', 'CASH', FALSE),
+       ('Moldovan Leu', 'MDL', 'CASH', FALSE),
+       ('Malagasy Ariary', 'MGA', 'CASH', FALSE),
+       ('Macedonian Denar', 'MKD', 'CASH', FALSE),
+       ('Myanmar Kyat', 'MMK', 'CASH', FALSE),
+       ('Mongolian Tugrik', 'MNT', 'CASH', FALSE),
+       ('Macanese Pataca', 'MOP', 'CASH', FALSE),
+       ('Mauritanian Ouguiya', 'MRU', 'CASH', FALSE),
+       ('Mauritian Rupee', 'MUR', 'CASH', FALSE),
+       ('Maldivian Rufiyaa', 'MVR', 'CASH', FALSE),
+       ('Malawian Kwacha', 'MWK', 'CASH', FALSE),
+       ('Mexican Peso', 'MXN', 'CASH', FALSE),
+       ('Malaysian Ringgit', 'MYR', 'CASH', FALSE),
+       ('Mozambican Metical', 'MZN', 'CASH', FALSE),
+       ('Namibian Dollar', 'NAD', 'CASH', FALSE),
+       ('Nigerian Naira', 'NGN', 'CASH', FALSE),
+       ('Nicaraguan Córdoba', 'NIO', 'CASH', FALSE),
+       ('Norwegian Krone', 'NOK', 'CASH', FALSE),
+       ('Nepalese Rupee', 'NPR', 'CASH', FALSE),
+       ('New Zealand Dollar', 'NZD', 'CASH', FALSE),
+       ('Omani Rial', 'OMR', 'CASH', FALSE),
+       ('Panamanian Balboa', 'PAB', 'CASH', FALSE),
+       ('Peruvian Sol', 'PEN', 'CASH', FALSE),
+       ('Papua New Guinean Kina', 'PGK', 'CASH', FALSE),
+       ('Philippine Peso', 'PHP', 'CASH', FALSE),
+       ('Pakistani Rupee', 'PKR', 'CASH', FALSE),
+       ('Polish Zloty', 'PLN', 'CASH', FALSE),
+       ('Paraguayan Guarani', 'PYG', 'CASH', FALSE),
        ('Qatari Riyal', 'QAR', 'CASH', FALSE),
-       ('Turkish Lira', 'TRY', 'CASH', FALSE)
+       ('Romanian Leu', 'RON', 'CASH', FALSE),
+       ('Serbian Dinar', 'RSD', 'CASH', FALSE),
+       ('Russian Ruble', 'RUB', 'CASH', FALSE),
+       ('Rwandan Franc', 'RWF', 'CASH', FALSE),
+       ('Saudi Riyal', 'SAR', 'CASH', FALSE),
+       ('Solomon Islands Dollar', 'SBD', 'CASH', FALSE),
+       ('Seychellois Rupee', 'SCR', 'CASH', FALSE),
+       ('Sudanese Pound', 'SDG', 'CASH', FALSE),
+       ('Swedish Krona', 'SEK', 'CASH', FALSE),
+       ('Singapore Dollar', 'SGD', 'CASH', FALSE),
+       ('St. Helena Pound', 'SHP', 'CASH', FALSE),
+       ('Sierra Leonean Leone', 'SLE', 'CASH', FALSE),
+       ('Somali Shilling', 'SOS', 'CASH', FALSE),
+       ('Surinamese Dollar', 'SRD', 'CASH', FALSE),
+       ('South Sudanese Pound', 'SSP', 'CASH', FALSE),
+       ('São Tomé & Príncipe Dobra', 'STN', 'CASH', FALSE),
+       ('Salvadoran Colón', 'SVC', 'CASH', FALSE),
+       ('Syrian Pound', 'SYP', 'CASH', FALSE),
+       ('Swazi Lilangeni', 'SZL', 'CASH', FALSE),
+       ('Thai Baht', 'THB', 'CASH', FALSE),
+       ('Tajikistani Somoni', 'TJS', 'CASH', FALSE),
+       ('Turkmenistani Manat', 'TMT', 'CASH', FALSE),
+       ('Tunisian Dinar', 'TND', 'CASH', FALSE),
+       ('Tongan Paʻanga', 'TOP', 'CASH', FALSE),
+       ('Turkish Lira', 'TRY', 'CASH', FALSE),
+       ('Trinidad & Tobago Dollar', 'TTD', 'CASH', FALSE),
+       ('New Taiwan Dollar', 'TWD', 'CASH', FALSE),
+       ('Tanzanian Shilling', 'TZS', 'CASH', FALSE),
+       ('Ukrainian Hryvnia', 'UAH', 'CASH', FALSE),
+       ('Ugandan Shilling', 'UGX', 'CASH', FALSE),
+       ('US Dollar', 'USD', 'CASH', FALSE),
+       ('Uruguayan Peso', 'UYU', 'CASH', FALSE),
+       ('Uzbekistani Som', 'UZS', 'CASH', FALSE),
+       ('Bolívar Soberano', 'VED', 'CASH', FALSE),
+       ('Venezuelan Bolívar', 'VES', 'CASH', FALSE),
+       ('Vietnamese Dong', 'VND', 'CASH', FALSE),
+       ('Vanuatu Vatu', 'VUV', 'CASH', FALSE),
+       ('Samoan Tala', 'WST', 'CASH', FALSE),
+       ('Central African CFA Franc', 'XAF', 'CASH', FALSE),
+       ('East Caribbean Dollar', 'XCD', 'CASH', FALSE),
+       ('Caribbean guilder', 'XCG', 'CASH', FALSE),
+       ('West African CFA Franc', 'XOF', 'CASH', FALSE),
+       ('CFP Franc', 'XPF', 'CASH', FALSE),
+       ('Yemeni Rial', 'YER', 'CASH', FALSE),
+       ('South African Rand', 'ZAR', 'CASH', FALSE),
+       ('Zambian Kwacha', 'ZMW', 'CASH', FALSE),
+       ('Zimbabwean Gold', 'ZWG', 'CASH', FALSE)
 ON CONFLICT (symbol, category) DO NOTHING;
 
--- Seed account folders (idempotent)
-INSERT INTO accounts (name, master_type, parent_id, asset_id, is_internal, created_at)
-SELECT 'Cash', 'ASSET', NULL, NULL, TRUE, (CAST(strftime('%s','now') AS INTEGER) * 1000)
-WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE name = 'Cash' AND parent_id IS NULL);
-
-INSERT INTO accounts (name, master_type, parent_id, asset_id, is_internal, created_at)
-SELECT 'Securities', 'ASSET', NULL, NULL, TRUE, (CAST(strftime('%s','now') AS INTEGER) * 1000)
-WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE name = 'Securities' AND parent_id IS NULL);
-
-INSERT INTO accounts (name, master_type, parent_id, asset_id, is_internal, created_at)
-SELECT 'Fixed', 'ASSET', NULL, NULL, TRUE, (CAST(strftime('%s','now') AS INTEGER) * 1000)
-WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE name = 'Fixed' AND parent_id IS NULL);
-
-INSERT INTO accounts (name, master_type, parent_id, asset_id, is_internal, created_at)
-SELECT 'Debt', 'LIABILITY', NULL, NULL, TRUE, (CAST(strftime('%s','now') AS INTEGER) * 1000)
-WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE name = 'Debt' AND parent_id IS NULL);
-
-INSERT INTO accounts (name, master_type, parent_id, asset_id, is_internal, created_at)
-SELECT 'EGP:Loan Account', 'LIABILITY', (SELECT id FROM accounts WHERE name = 'Cash'), (SELECT id FROM assets WHERE symbol = 'EGP'), TRUE, (CAST(strftime('%s','now') AS INTEGER) * 1000)
-WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE name = 'EGP:Loan Account');
-
-INSERT INTO accounts (name, master_type, parent_id, asset_id, is_internal, created_at)
-SELECT 'Property', 'ASSET', (SELECT id FROM accounts WHERE name = 'Fixed'), NULL, TRUE, (CAST(strftime('%s','now') AS INTEGER) * 1000)
-WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE name = 'Property');
-
-INSERT INTO accounts (name, master_type, parent_id, asset_id, is_internal, created_at)
-SELECT 'EGP:Basic Salary', 'INCOME', NULL, (SELECT id FROM assets WHERE symbol = 'EGP'), FALSE, (CAST(strftime('%s','now') AS INTEGER) * 1000)
-WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE name = 'EGP:Basic Salary');
-
-INSERT INTO accounts (name, master_type, parent_id, asset_id, is_internal, created_at)
-SELECT 'EGP:Bonus', 'INCOME', NULL, (SELECT id FROM assets WHERE symbol = 'EGP'), FALSE, (CAST(strftime('%s','now') AS INTEGER) * 1000)
-WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE name = 'EGP:Bonus');
-
-INSERT INTO accounts (name, master_type, parent_id, asset_id, is_internal, created_at)
-SELECT 'AED:Basic Salary', 'INCOME', NULL, (SELECT id FROM assets WHERE symbol = 'AED'), FALSE, (CAST(strftime('%s','now') AS INTEGER) * 1000)
-WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE name = 'AED:Basic Salary');
-
-INSERT INTO accounts (name, master_type, parent_id, asset_id, is_internal, created_at)
-SELECT 'AED:Bonus', 'INCOME', NULL, (SELECT id FROM assets WHERE symbol = 'AED'), FALSE, (CAST(strftime('%s','now') AS INTEGER) * 1000)
-WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE name = 'AED:Bonus');
-
--- Seed expense accounts (idempotent)
-INSERT INTO accounts (name, master_type, parent_id, asset_id, is_internal, created_at)
-SELECT 'EGP:Food', 'EXPENSE', NULL, (SELECT id FROM assets WHERE symbol = 'EGP'), FALSE, (CAST(strftime('%s','now') AS INTEGER) * 1000)
-WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE name = 'EGP:Food');
-
-INSERT INTO accounts (name, master_type, parent_id, asset_id, is_internal, created_at)
-SELECT 'EGP:Groceries', 'EXPENSE', NULL, (SELECT id FROM assets WHERE symbol = 'EGP'), FALSE, (CAST(strftime('%s','now') AS INTEGER) * 1000)
-WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE name = 'EGP:Groceries');
-
-INSERT INTO accounts (name, master_type, parent_id, asset_id, is_internal, created_at)
-SELECT 'EGP:Subscriptions', 'EXPENSE', NULL, (SELECT id FROM assets WHERE symbol = 'EGP'), FALSE, (CAST(strftime('%s','now') AS INTEGER) * 1000)
-WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE name = 'EGP:Subscriptions');
-
-INSERT INTO accounts (name, master_type, parent_id, asset_id, is_internal, created_at)
-SELECT 'EGP:Other', 'EXPENSE', NULL, (SELECT id FROM assets WHERE symbol = 'EGP'), FALSE, (CAST(strftime('%s','now') AS INTEGER) * 1000)
-WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE name = 'EGP:Other');
-
-INSERT INTO accounts (name, master_type, parent_id, asset_id, is_internal, created_at)
-SELECT 'EGP:PocketMoney', 'EXPENSE', NULL, (SELECT id FROM assets WHERE symbol = 'EGP'), FALSE, (CAST(strftime('%s','now') AS INTEGER) * 1000)
-WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE name = 'EGP:PocketMoney');
-
-INSERT INTO accounts (name, master_type, parent_id, asset_id, is_internal, created_at)
-SELECT 'EGP:MobileRecharge', 'EXPENSE', NULL, (SELECT id FROM assets WHERE symbol = 'EGP'), FALSE, (CAST(strftime('%s','now') AS INTEGER) * 1000)
-WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE name = 'EGP:MobileRecharge');
-
-INSERT INTO accounts (name, master_type, parent_id, asset_id, is_internal, created_at)
-SELECT 'EGP:Family', 'EXPENSE', NULL, (SELECT id FROM assets WHERE symbol = 'EGP'), FALSE, (CAST(strftime('%s','now') AS INTEGER) * 1000)
-WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE name = 'EGP:Family');
-
-INSERT INTO accounts (name, master_type, parent_id, asset_id, is_internal, created_at)
-SELECT 'EGP:Charity', 'EXPENSE', NULL, (SELECT id FROM assets WHERE symbol = 'EGP'), FALSE, (CAST(strftime('%s','now') AS INTEGER) * 1000)
-WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE name = 'EGP:Charity');
-
-INSERT INTO accounts (name, master_type, parent_id, asset_id, is_internal, created_at)
-SELECT 'EGP:Lending', 'EXPENSE', NULL, (SELECT id FROM assets WHERE symbol = 'EGP'), FALSE, (CAST(strftime('%s','now') AS INTEGER) * 1000)
-WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE name = 'EGP:Lending');
-
-INSERT INTO accounts (name, master_type, parent_id, asset_id, is_internal, created_at)
-SELECT 'AED:Food', 'EXPENSE', NULL, (SELECT id FROM assets WHERE symbol = 'AED'), FALSE, (CAST(strftime('%s','now') AS INTEGER) * 1000)
-WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE name = 'AED:Food');
-
-INSERT INTO accounts (name, master_type, parent_id, asset_id, is_internal, created_at)
-SELECT 'AED:Groceries', 'EXPENSE', NULL, (SELECT id FROM assets WHERE symbol = 'AED'), FALSE, (CAST(strftime('%s','now') AS INTEGER) * 1000)
-WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE name = 'AED:Groceries');
-
-INSERT INTO accounts (name, master_type, parent_id, asset_id, is_internal, created_at)
-SELECT 'AED:Subscriptions', 'EXPENSE', NULL, (SELECT id FROM assets WHERE symbol = 'AED'), FALSE, (CAST(strftime('%s','now') AS INTEGER) * 1000)
-WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE name = 'AED:Subscriptions');
-
-INSERT INTO accounts (name, master_type, parent_id, asset_id, is_internal, created_at)
-SELECT 'AED:Other', 'EXPENSE', NULL, (SELECT id FROM assets WHERE symbol = 'AED'), FALSE, (CAST(strftime('%s','now') AS INTEGER) * 1000)
-WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE name = 'AED:Other');
-
-INSERT INTO accounts (name, master_type, parent_id, asset_id, is_internal, created_at)
-SELECT 'AED:PocketMoney', 'EXPENSE', NULL, (SELECT id FROM assets WHERE symbol = 'AED'), FALSE, (CAST(strftime('%s','now') AS INTEGER) * 1000)
-WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE name = 'AED:PocketMoney');
-
-INSERT INTO accounts (name, master_type, parent_id, asset_id, is_internal, created_at)
-SELECT 'AED:MobileRecharge', 'EXPENSE', NULL, (SELECT id FROM assets WHERE symbol = 'AED'), FALSE, (CAST(strftime('%s','now') AS INTEGER) * 1000)
-WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE name = 'AED:MobileRecharge');
-
-INSERT INTO accounts (name, master_type, parent_id, asset_id, is_internal, created_at)
-SELECT 'AED:Family', 'EXPENSE', NULL, (SELECT id FROM assets WHERE symbol = 'AED'), FALSE, (CAST(strftime('%s','now') AS INTEGER) * 1000)
-WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE name = 'AED:Family');
-
-INSERT INTO accounts (name, master_type, parent_id, asset_id, is_internal, created_at)
-SELECT 'AED:Charity', 'EXPENSE', NULL, (SELECT id FROM assets WHERE symbol = 'AED'), FALSE, (CAST(strftime('%s','now') AS INTEGER) * 1000)
-WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE name = 'AED:Charity');
-
-INSERT INTO accounts (name, master_type, parent_id, asset_id, is_internal, created_at)
-SELECT 'AED:Lending', 'EXPENSE', NULL, (SELECT id FROM assets WHERE symbol = 'AED'), FALSE, (CAST(strftime('%s','now') AS INTEGER) * 1000)
-WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE name = 'AED:Lending');
-
--- Seed SYSTEM account trios (idempotent)
-INSERT INTO accounts (name, master_type, parent_id, asset_id, is_internal, created_at)
-SELECT 'EGP:Opening Balance', 'SYSTEM', NULL, (SELECT id FROM assets WHERE symbol = 'EGP'), FALSE, (CAST(strftime('%s','now') AS INTEGER) * 1000)
-WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE name = 'EGP:Opening Balance');
-
-INSERT INTO accounts (name, master_type, parent_id, asset_id, is_internal, created_at)
-SELECT 'EGP:Balance Increase Adjustment', 'SYSTEM', NULL, (SELECT id FROM assets WHERE symbol = 'EGP'), FALSE, (CAST(strftime('%s','now') AS INTEGER) * 1000)
-WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE name = 'EGP:Balance Increase Adjustment');
-
-INSERT INTO accounts (name, master_type, parent_id, asset_id, is_internal, created_at)
-SELECT 'EGP:Balance Decrease Adjustment', 'SYSTEM', NULL, (SELECT id FROM assets WHERE symbol = 'EGP'), FALSE, (CAST(strftime('%s','now') AS INTEGER) * 1000)
-WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE name = 'EGP:Balance Decrease Adjustment');
-
-INSERT INTO accounts (name, master_type, parent_id, asset_id, is_internal, created_at)
-SELECT 'AED:Opening Balance', 'SYSTEM', NULL, (SELECT id FROM assets WHERE symbol = 'AED'), FALSE, (CAST(strftime('%s','now') AS INTEGER) * 1000)
-WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE name = 'AED:Opening Balance');
-
-INSERT INTO accounts (name, master_type, parent_id, asset_id, is_internal, created_at)
-SELECT 'AED:Balance Increase Adjustment', 'SYSTEM', NULL, (SELECT id FROM assets WHERE symbol = 'AED'), FALSE, (CAST(strftime('%s','now') AS INTEGER) * 1000)
-WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE name = 'AED:Balance Increase Adjustment');
-
-INSERT INTO accounts (name, master_type, parent_id, asset_id, is_internal, created_at)
-SELECT 'AED:Balance Decrease Adjustment', 'SYSTEM', NULL, (SELECT id FROM assets WHERE symbol = 'AED'), FALSE, (CAST(strftime('%s','now') AS INTEGER) * 1000)
-WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE name = 'AED:Balance Decrease Adjustment');
+-- Source for manual entries and system adjustments (opening balances, reconciliation). Idempotent.
+INSERT INTO source_systems (name, code, created_at)
+SELECT 'Manual Entry', 'MANUAL_ENTRY', (CAST(strftime('%s','now') AS INTEGER) * 1000)
+WHERE NOT EXISTS (SELECT 1 FROM source_systems WHERE code = 'MANUAL_ENTRY');

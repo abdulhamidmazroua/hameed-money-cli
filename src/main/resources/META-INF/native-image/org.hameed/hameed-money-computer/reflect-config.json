@@ -1,12 +1,12 @@
 [
   {
-    "name": "org.hameed.hameedmoneycomputer.proxy.dto.EodhdSymbolDto",
+    "name": "org.hameed.hameedmoneycomputer.market.provider.EodhdSymbolDto",
     "allDeclaredConstructors": true,
     "allDeclaredMethods": true,
     "allRecordComponents": true
   },
   {
-    "name": "org.hameed.hameedmoneycomputer.proxy.dto.TwelveDataListContainer",
+    "name": "org.hameed.hameedmoneycomputer.market.provider.TwelveDataListContainer",
     "allDeclaredConstructors": true,
     "allDeclaredMethods": true,
     "allRecordComponents": true
@@ -26,37 +26,37 @@
     "allPublicConstructors": true
   },
   {
-    "name": "org.hameed.hameedmoneycomputer.config.HmcConfig$ConfigData",
+    "name": "org.hameed.hameedmoneycomputer.shared.HmcConfig$ConfigData",
     "allDeclaredConstructors": true,
     "allDeclaredMethods": true,
     "allRecordComponents": true
   },
   {
-    "name": "org.hameed.hameedmoneycomputer.config.HmcConfig$ConfigData$EodhdConfig",
+    "name": "org.hameed.hameedmoneycomputer.shared.HmcConfig$ConfigData$EodhdConfig",
     "allDeclaredConstructors": true,
     "allDeclaredMethods": true,
     "allRecordComponents": true
   },
   {
-    "name": "org.hameed.hameedmoneycomputer.config.HmcConfig$ConfigData$TwelveDataConfig",
+    "name": "org.hameed.hameedmoneycomputer.shared.HmcConfig$ConfigData$TwelveDataConfig",
     "allDeclaredConstructors": true,
     "allDeclaredMethods": true,
     "allRecordComponents": true
   },
   {
-    "name": "org.hameed.hameedmoneycomputer.config.HmcConfig$LlmConfig",
+    "name": "org.hameed.hameedmoneycomputer.shared.HmcConfig$LlmConfig",
     "allDeclaredConstructors": true,
     "allDeclaredMethods": true,
     "allRecordComponents": true
   },
   {
-    "name": "org.hameed.hameedmoneycomputer.model.entity.SourceFormatConfig",
+    "name": "org.hameed.hameedmoneycomputer.ingestion.SourceFormatConfig",
     "allDeclaredConstructors": true,
     "allDeclaredMethods": true,
     "allRecordComponents": true
   },
   {
-    "name": "org.hameed.hameedmoneycomputer.model.entity.SourceFormatConfig$ColumnMapping",
+    "name": "org.hameed.hameedmoneycomputer.ingestion.SourceFormatConfig$ColumnMapping",
     "allDeclaredConstructors": true,
     "allDeclaredMethods": true,
     "allRecordComponents": true

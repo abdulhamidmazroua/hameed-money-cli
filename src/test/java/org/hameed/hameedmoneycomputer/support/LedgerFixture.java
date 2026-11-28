@@ -1,24 +1,21 @@
 package org.hameed.hameedmoneycomputer.support;
 
-import org.hameed.hameedmoneycomputer.enums.AccountType;
-import org.hameed.hameedmoneycomputer.enums.TransactionType;
-import org.hameed.hameedmoneycomputer.model.dto.AccountCreateDto;
-import org.hameed.hameedmoneycomputer.model.dto.MarketQuoteDto;
-import org.hameed.hameedmoneycomputer.model.dto.TransactionCreateDto;
-import org.hameed.hameedmoneycomputer.model.entity.Account;
-import org.hameed.hameedmoneycomputer.repository.SourceSystemRepository;
-import org.hameed.hameedmoneycomputer.service.AccountService;
-import org.hameed.hameedmoneycomputer.service.AssetService;
-import org.hameed.hameedmoneycomputer.service.MarketQuoteService;
-import org.hameed.hameedmoneycomputer.service.SourceService;
-import org.hameed.hameedmoneycomputer.service.TransactionService;
+import org.hameed.hameedmoneycomputer.ledger.AccountCreateDto;
+import org.hameed.hameedmoneycomputer.ledger.AccountService;
+import org.hameed.hameedmoneycomputer.ledger.AccountType;
+import org.hameed.hameedmoneycomputer.ledger.AccountView;
+import org.hameed.hameedmoneycomputer.ledger.TransactionCreateDto;
+import org.hameed.hameedmoneycomputer.ledger.TransactionService;
+import org.hameed.hameedmoneycomputer.ledger.TransactionType;
+import org.hameed.hameedmoneycomputer.market.AssetService;
+import org.hameed.hameedmoneycomputer.market.MarketQuoteDto;
+import org.hameed.hameedmoneycomputer.market.MarketQuoteService;
+import org.hameed.hameedmoneycomputer.shared.DateUtil;
 import org.springframework.boot.test.context.TestComponent;
 
 import java.math.BigDecimal;
 
-/**
- * Builds ledger data for integration tests through the real services. Each test calls {@link #reset()} first.
- */
+/** Builds ledger data for integration tests through the real services. */
 @TestComponent
 public class LedgerFixture {
 
@@ -28,51 +25,41 @@ public class LedgerFixture {
     private final AssetService assetService;
     private final TransactionService transactionService;
     private final MarketQuoteService marketQuoteService;
-    private final SourceService sourceService;
-    private final SourceSystemRepository sourceSystemRepository;
 
     public LedgerFixture(AccountService accountService, AssetService assetService,
-                         TransactionService transactionService, MarketQuoteService marketQuoteService,
-                         SourceService sourceService, SourceSystemRepository sourceSystemRepository) {
+                         TransactionService transactionService, MarketQuoteService marketQuoteService) {
         this.accountService = accountService;
         this.assetService = assetService;
         this.transactionService = transactionService;
         this.marketQuoteService = marketQuoteService;
-        this.sourceService = sourceService;
-        this.sourceSystemRepository = sourceSystemRepository;
     }
 
-    /** The seed doesn't create MANUAL_ENTRY, but opening balances and manual transactions require it. */
-    public void ensureManualSource() {
-        if (!sourceSystemRepository.existsByCode(MANUAL)) {
-            sourceService.addSource("Manual Entry", MANUAL, null, null);
-        }
-    }
-
-    public Account account(String name, AccountType type, String assetSymbol) {
-        Long assetId = assetService.getAssetBySymbol(assetSymbol).getId();
+    public AccountView account(String name, AccountType type, String assetSymbol) {
+        long assetId = assetService.getAssetBySymbol(assetSymbol).id();
         boolean internal = type == AccountType.ASSET || type == AccountType.LIABILITY;
         return accountService.createAccount(new AccountCreateDto(name, type, null, assetId, internal));
     }
 
-    public Account assetWithOpening(String name, String assetSymbol, String balance) {
-        ensureManualSource();
-        return accountService.createAccountWithOpeningBalance(name, null, assetSymbol, balance);
+    public AccountView assetWithOpening(String name, String assetSymbol, String balance) {
+        return accountService.createAccountWithOpeningBalance(name, null, assetSymbol, new BigDecimal(balance));
+    }
+
+    public BigDecimal balance(AccountView account) {
+        return accountService.balance(account.id());
     }
 
     /** Same-currency movement of {@code amount} on {@code date} (dd-MM-yyyy). */
-    public void move(Account from, Account to, String amount, String date) {
+    public void move(AccountView from, AccountView to, String amount, String date) {
         move(from, to, amount, amount, date);
     }
 
-    public void move(Account from, Account to, String fromAmount, String toAmount, String date) {
-        ensureManualSource();
+    public void move(AccountView from, AccountView to, String fromAmount, String toAmount, String date) {
         transactionService.createTransaction(new TransactionCreateDto(
-                "test " + from.getName() + " -> " + to.getName(),
+                "test " + from.name() + " -> " + to.name(),
                 TransactionType.BANK_TRANSFER,
-                from.getId(), to.getId(),
+                from.id(), to.id(),
                 new BigDecimal(fromAmount), new BigDecimal(toAmount),
-                date, MANUAL, BigDecimal.ZERO));
+                DateUtil.parseUserDate(date), MANUAL, BigDecimal.ZERO));
     }
 
     /** One {@code base} is worth {@code price} {@code quote}. */

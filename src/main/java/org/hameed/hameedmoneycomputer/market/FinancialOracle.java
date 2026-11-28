@@ -1,0 +1,107 @@
+package org.hameed.hameedmoneycomputer.market;
+
+import lombok.RequiredArgsConstructor;
+import org.hameed.hameedmoneycomputer.shared.BusinessRuleException;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.*;
+
+@RequiredArgsConstructor
+public class FinancialOracle {
+    // Map<SourceAssetId, Map<TargetAssetId, Price>>
+    private final Map<Long, Map<Long, BigDecimal>> adjacencyList = new HashMap<>();
+
+    public void addGraphNode(MarketQuote marketQuote) {
+        Long baseId = marketQuote.getBaseAsset().getId();
+        Long quoteId = marketQuote.getQuoteAsset().getId();
+        BigDecimal price = marketQuote.getPrice();
+
+        // 1. Forward edge (e.g. 1 USD -> 0.92 EUR)
+        adjacencyList.computeIfAbsent(baseId, k -> new HashMap<>())
+                .put(quoteId, price);
+
+        // 2. Inverse edge (e.g. 1 EUR -> 1/0.92 USD)
+        // This allows the Oracle to "walk backwards" through quotes
+        if (!price.equals(BigDecimal.ZERO)) {
+            adjacencyList.computeIfAbsent(quoteId, k -> new HashMap<>())
+                    .put(baseId, BigDecimal.ONE.divide(price, 10, RoundingMode.HALF_UP));
+        }
+
+        // 3. Add Identity Edges
+        adjacencyList.computeIfAbsent(baseId, k -> new HashMap<>()).put(baseId, BigDecimal.ONE);
+        adjacencyList.computeIfAbsent(quoteId, k -> new HashMap<>()).put(quoteId, BigDecimal.ONE);
+    }
+
+    public BigDecimal getRate(Long fromId, Long toId) {
+        // Use Breadth-First Search (BFS) to find the shortest path
+        // e.g. AAPL -> USD -> EUR
+        if (fromId.equals(toId)) {
+            return BigDecimal.ONE;
+        }
+
+        Path path = findShortestPath(fromId, toId);
+
+        if (path.edges().isEmpty()) {
+            throw new BusinessRuleException(
+                    "No conversion path found between asset IDs " + fromId + " and " + toId +
+                            ". Add a market quote to connect these assets."
+            );
+        }
+
+        return path.edges().stream()
+                .map(Edge::price)
+                .reduce(BigDecimal.ONE, BigDecimal::multiply);
+    }
+
+    private Path findShortestPath(Long fromId, Long toId) {
+        Queue<Long> queue = new LinkedList<>();
+        Map<Long, Long> parent = new HashMap<>();
+        Map<Long, BigDecimal> distance = new HashMap<>();
+
+        queue.offer(fromId);
+        distance.put(fromId, BigDecimal.ONE);
+        parent.put(fromId, null);
+
+        while (!queue.isEmpty()) {
+            Long current = queue.poll();
+
+            if (current.equals(toId)) {
+                List<Edge> edges = new ArrayList<>();
+                Long node = toId;
+
+                while (parent.get(node) != null) {
+                    Long prev = parent.get(node);
+                    BigDecimal price = adjacencyList.get(prev).get(node);
+                    edges.add(0, new Edge(price));
+                    node = prev;
+                }
+
+                return new Path(edges);
+            }
+
+            Map<Long, BigDecimal> neighbors = adjacencyList.getOrDefault(current, new HashMap<>());
+            for (Long neighbor : neighbors.keySet()) {
+                if (!distance.containsKey(neighbor)) {
+                    distance.put(neighbor, BigDecimal.ONE);
+                    parent.put(neighbor, current);
+                    queue.offer(neighbor);
+                }
+            }
+        }
+
+        return new Path(new ArrayList<>());
+    }
+
+    private record Path(
+            List<Edge> edges
+    ) {
+    }
+
+    private record Edge(
+            BigDecimal price
+    ) {
+    }
+
+
+}

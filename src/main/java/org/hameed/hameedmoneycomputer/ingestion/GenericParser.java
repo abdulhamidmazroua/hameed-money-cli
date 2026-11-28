@@ -3,7 +3,6 @@ package org.hameed.hameedmoneycomputer.ingestion;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
-import org.hameed.hameedmoneycomputer.model.entity.SourceFormatConfig;
 
 import java.io.IOException;
 import java.io.Reader;
@@ -78,7 +77,7 @@ public final class GenericParser {
         for (String dateFormat : config.dateFormats()) {
             try {
                 DateTimeFormatter fmt = DateTimeFormatter.ofPattern(dateFormat, Locale.ENGLISH);
-                parsedDate = org.hameed.hameedmoneycomputer.util.DateUtil.parseDateStringToMillis(rawDate.trim(), fmt);
+                parsedDate = org.hameed.hameedmoneycomputer.shared.DateUtil.parseDateStringToMillis(rawDate.trim(), fmt);
                 break;
             } catch (DateTimeParseException ignored) {
             }
@@ -87,7 +86,7 @@ public final class GenericParser {
             for (String dateFormat : FALLBACK_DATE_FORMATS) {
                 try {
                     DateTimeFormatter fmt = DateTimeFormatter.ofPattern(dateFormat, Locale.ENGLISH);
-                    parsedDate = org.hameed.hameedmoneycomputer.util.DateUtil.parseDateStringToMillis(rawDate.trim(), fmt);
+                    parsedDate = org.hameed.hameedmoneycomputer.shared.DateUtil.parseDateStringToMillis(rawDate.trim(), fmt);
                     break;
                 } catch (DateTimeParseException ignored) {
                 }

@@ -30,7 +30,7 @@ Built with **Spring Boot 4 + Spring Shell 4 + GraalVM 25**, powered by **SQLite*
 |------------|-------------|
 | **Import bank statements** | Convert any format (PDF, image, XLS) to CSV, parse using a configurable layout, then auto-classify every row with regex rules + LLM |
 | **Learn from corrections** | Every applied transaction auto-creates a regex rule so future imports from the same source get smarter |
-| **Multi-currency** | Assets (EGP, USD, AAPL, Gold) form a graph; BFS finds the shortest conversion path for net worth in any currency |
+| **Multi-currency** | Assets (currencies, stocks, gold, ...) form a graph; BFS finds the shortest conversion path for net worth in any currency |
 | **Idempotent imports** | SHA-256 hashing prevents duplicate transactions no matter how many times you run the same file |
 | **Hierarchical accounts** | Folders organize your accounts (Checking, Groceries, Salary); only leaf accounts hold assets and appear in transactions |
 
@@ -65,20 +65,23 @@ Accounts are divided into **internal** (ASSET, LIABILITY — things you own/owe)
 
 ## Quick Start
 
+Examples use `<CUR>` for your base currency and `<OTHER>` for any other currency (ISO 4217 codes, e.g. USD).
+
 ```bash
-# 1. Register a cash asset
-asset register "Egyptian Pound" EGP --category cash
+# 1. First run: choose your base currency. Every active ISO 4217 currency is preloaded;
+#    on an empty ledger this also creates starter accounts (Cash, Debt, <CUR>:Salary, <CUR>:Groceries, ...)
+setup --currency <CUR>
 
 # 2. Create an account with an opening balance
-account init --name "My Wallet" --asset EGP --balance 5000
+account init --name "My Wallet" --asset <CUR> --balance 5000
 
-# 3. Set a market quote
-quote set EGP USD --price 0.020
+# 3. Hold another currency? Give reports a rate to convert it
+quote set <OTHER> <CUR> --price 1.25
 
-# 4. See your net worth and this month's income
-report nw EGP
-report income EGP
-report cashflow EGP this-year
+# 4. See your net worth and this month's income (default: base currency)
+report nw
+report income
+report cashflow this-year
 
 # 5. Import a bank statement
 source add --name "My Bank" --code MY_BANK --file statement.csv   # register source
@@ -114,6 +117,7 @@ Or manually:
 ```bash
 cp target/hameed-money-computer ~/.local/bin/hmc
 help                  # creates ~/.hmc/ on first launch
+setup --currency <CUR> # choose your base currency (prompted if omitted)
 ```
 
 ### Configuration (`~/.hmc/config.json`)
@@ -122,7 +126,8 @@ Full example with all options:
 
 ```json
 {
-  "defaultCurrency": "EGP",
+  "baseCurrency": "<CUR>",
+  "timezone": "<Area>/<City>",
   "marketDataProvider": "eodhd",
   "eodhd": { "apiKey": "YOUR_EODHD_API_KEY" },
   "twelveData": { "apiKey": "YOUR_TWELVEDATA_API_KEY" },
@@ -138,6 +143,8 @@ Full example with all options:
 
 | Field | Required | Description |
 |-------|----------|-------------|
+| `baseCurrency` | Set by `setup` | ISO 4217 code; the default currency for reports |
+| `timezone` | No | IANA zone id used for dates; defaults to the system timezone |
 | `marketDataProvider` | No | `"eodhd"` or `"twelvedata"` (default: `"eodhd"`) |
 | `eodhd.apiKey` | Yes* | EODHD API key. Required when using EODHD |
 | `twelveData.apiKey` | Yes* | Twelve Data API key. Required when using Twelve Data |
@@ -205,10 +212,10 @@ Every transaction gets an `external_ref_id` — a SHA-256 hash of `sourceSystemC
 
 A graph traversal oracle converts between any two assets:
 
-- **Nodes:** Every `Asset` (EGP, USD, AAPL, Gold) is a node
+- **Nodes:** Every `Asset` (currencies, stocks, gold, ...) is a node
 - **Edges:** `market_quote` records are directed price edges
 - **Identity:** An asset always converts to itself at 1:1
-- **Inverse:** If USD→EGP = 48.5, then EGP→USD ≈ 1/48.5 is derived automatically
+- **Inverse:** If A→B = r, then B→A = 1/r is derived automatically
 - **Traversal:** BFS finds the shortest path and multiplies edge weights
 
 ---
@@ -308,9 +315,9 @@ When `ingest apply` runs, each classified row generates a rule automatically. Th
 
 | Raw description | Generated pattern |
 |----------------|-------------------|
-| `TT REF: LN12345678901234 AED 500 SUPERMARKET ABC DEF LLC ...` | `(?i).*SUPERMARKET ABC DEF LLC.*` |
-| `CARD NO.1234********5678 Coffee Shop Downtown:AE 978254...` | `(?i).*Coffee Shop Downtown.*` |
-| `MOBILE BANKING TRANSFER TO AE123456789012345678901 RefNo:- ABC123DEF456` | `(?i).*MOBILE BANKING TRANSFER TO.*` |
+| `TT REF: LN12345678901234 500 SUPERMARKET ABC DEF LLC ...` | `(?i).*SUPERMARKET ABC DEF LLC.*` |
+| `CARD NO.1234********5678 Coffee Shop Downtown 978254...` | `(?i).*Coffee Shop Downtown.*` |
+| `MOBILE BANKING TRANSFER TO 0012345678901234 RefNo:- ABC123DEF456` | `(?i).*MOBILE BANKING TRANSFER TO.*` |
 | `SALARY TRANSFER FROM EMPLOYER NAME HERE ...` | `(?i).*SALARY TRANSFER FROM EMPLOYER.*` |
 
 ### Manual rules
@@ -339,11 +346,9 @@ At apply time, the amount sign determines the direction:
 ## Walkthrough: Import a Bank Statement End-to-End
 
 ```bash
-# 0. Register assets and accounts first
-asset register "US Dollar" USD --category cash
-account init --name "Checking" --asset USD --balance 5000
-account create --name "Groceries" --parent-account-id 4    # EXPENSE
-account create --name "Salary" --parent-account-id 4       # INCOME
+# 0. Base currency + starter accounts (Groceries, Salary, ...), then the bank account
+setup --currency <CUR>
+account init --name "Checking" --asset <CUR> --balance 5000
 
 # 1. Convert if needed (PDF → CSV)
 convert ~/Downloads/bank-statement.pdf
@@ -359,7 +364,7 @@ ingest review --session 1
 ingest review --session 1 --unmatched
 
 # 5. Fix anything the LLM got wrong
-ingest edit --session 1 --row 4 --field account --value "Groceries"
+ingest edit --session 1 --row 4 --field account --value "<CUR>:Groceries"
 ingest edit --session 1 --row 7 --field status --value DISCARDED
 
 # 6. Commit to ledger (auto-creates rules for next time)
@@ -367,7 +372,7 @@ ingest apply --session 1
 
 # 7. Verify the ledger
 transaction list --from-account-id 2
-report nw USD
+report nw
 ```
 
 ---
@@ -434,10 +439,11 @@ report nw USD
 
 | Command | Description |
 |---------|-------------|
+| `setup [--currency <code>]` | Choose the base currency; on an empty ledger also creates starter accounts |
 | `hmc init --account <name> --balance <amt>` | Post an opening balance |
 | `hmc reconcile --account <name> --actual <amt>` | Fix a balance discrepancy |
 | `hmc db backup [--output <dir>]` | Backup the database |
-| `report nw [<currency>]` | Net worth report (default: `defaultCurrency` from config, else EGP) |
+| `report nw [<currency>]` | Net worth report (default: base currency) |
 | `report income [<currency>] [<period>]` | Net income by source. Periods: `this-month` (default), `last-month`, `this-year`, `last-year`, `all`; or `-s`/`-e` dates (`dd-MM-yyyy`, end inclusive) |
 | `report cashflow [<currency>] [<period>]` | Income vs. expenses, savings rate, avg monthly burn and cash runway. Same period/date options as `report income` |
 | `report data-integrity` | Ledger health check |
@@ -451,19 +457,25 @@ report nw USD
 
 ```
 src/main/java/org/hameed/hameedmoneycomputer/
-├── commands/        # Spring Shell command definitions
-├── config/          # Spring beans, RestClient, strategy wiring
-├── constants/       # Command help strings, LLM prompts
-├── enums/           # AccountType, AssetCategory, etc.
-├── ingestion/       # CSV parser, amount parser, ingestion utilities
-├── model/
-│   ├── dto/         # Request/response DTOs
-│   └── entity/      # JPA entities
-├── proxy/           # LLM proxy, market data providers
-├── repository/      # Spring Data JPA repositories
-├── service/         # Business logic layer
-└── util/            # Shared utilities, date helpers
+├── ledger/          # Accounts, transactions, opening balances & reconciliation, first-run setup, sources
+├── market/          # Assets, market quotes, FX/price conversion (FinancialOracle)
+│   └── provider/    # External market-data sources (Yahoo, EODHD, Twelve Data)
+├── ingestion/       # Statement import: parsing, staging, rules, classifiers
+├── reporting/       # Net worth, income, cash flow, data-integrity reports; audits
+├── store/           # Persistence adapter: JPA implementations of the feature stores
+├── shared/          # Config, dates, typed errors, database migrations, backup
+└── cli/             # Spring Shell commands, help text, terminal rendering
 ```
+
+- **Feature packages** hold their entities, one cohesive service per area (its API), the records that service
+  returns (`AccountView`, `TransactionView`, `NetworthReport`, ...) and the store interfaces (ports) it persists through.
+- **`store/`** implements the ports with Spring Data JPA; nothing else depends on it. (Ingestion keeps its own
+  repositories until its redesign.)
+- **Commands** only parse → call a service → render. They never use stores; rendering (tables, reports) lives in the CLI.
+- **Errors** are typed: `NotFoundException`, `ValidationException`, `BusinessRuleException`, `ExternalServiceException`.
+  The CLI shows their message with exit code 1; anything else is reported as unexpected (exit code 2).
+- **Dependencies** flow one way: cli → reporting, ingestion → ledger → market → shared. (Until the ingestion
+  redesign, `ledger.SourceSystem` still references `ingestion.SourceFormatConfig`.)
 
 ### Database tables
 
